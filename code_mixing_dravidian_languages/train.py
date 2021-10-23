@@ -71,6 +71,8 @@ def main():
     trainer = Trainer(
         fast_dev_run=args.debug,
         gpus=1,
+        num_nodes=2,
+        accelerator="ddp",
         logger=wandb_logger,
         callbacks=callbacks,
         log_every_n_steps=10,

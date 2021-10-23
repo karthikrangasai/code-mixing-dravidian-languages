@@ -1,3 +1,4 @@
+import os
 import wandb
 from argparse import ArgumentParser
 from dataclasses import asdict
@@ -43,7 +44,12 @@ def sweep_iteration():
         model, datamodule = get_model_and_datamodule(classifier_configuration)
         wandb_logger = get_logger(logger_configuration)
         trainer = Trainer(
-            logger=wandb_logger, callbacks=callbacks, gpus=-1, max_epochs=3
+            logger=wandb_logger,
+            callbacks=callbacks,
+            gpus=1,
+            num_nodes=2,
+            accelerator="ddp",
+            max_epochs=3,
         )
 
         wandb_logger.watch(model)
@@ -106,4 +112,5 @@ def main():
 
 
 if __name__ == "__main__":
+    root_dir = os.path.dirname(os.path.realpath(__file__))
     main()
