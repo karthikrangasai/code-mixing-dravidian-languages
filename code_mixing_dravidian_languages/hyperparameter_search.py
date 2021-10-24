@@ -1,4 +1,7 @@
 import os
+import sys
+
+print(sys.prefix)
 import wandb
 from argparse import ArgumentParser
 from dataclasses import asdict
