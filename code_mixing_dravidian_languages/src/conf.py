@@ -10,6 +10,7 @@ class CodeMixingSentimentClassifierConfiguration:
     # Configurable values
     learning_rate: float = field(default=1e-5)
     batch_size: int = field(default=8)
+    num_workers: int = field(default=0)
     max_epochs: int = field(default=10)
     operation_type: str = field(default="train")
 

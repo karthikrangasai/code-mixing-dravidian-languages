@@ -18,7 +18,7 @@ from code_mixing_dravidian_languages.src.finetuning import FINE_TUNING_MAPPING
 from code_mixing_dravidian_languages.utils import get_model_and_datamodule, get_logger
 
 
-def sweep_iteration(is_hpc: bool, num_epochs: int):
+def sweep_iteration(is_hpc: bool, num_epochs: int, num_workers: int):
     with wandb.init() as run:
         config = run.config
 
@@ -26,6 +26,7 @@ def sweep_iteration(is_hpc: bool, num_epochs: int):
             backbone=config.backbone,
             learning_rate=config.lr,
             batch_size=config.batch_size,
+            num_workers=num_workers,
             max_length=config.max_length,
             max_epochs=3,
             operation_type="hparams_search",
@@ -73,6 +74,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("--hpc", action="store_true")
     parser.add_argument("--sweep_id", type=str, default=None, required=False)
+    parser.add_argument("--num_workers", type=int, required=False, default=0)
     parser.add_argument("-t", "--trials", type=int, default=1, required=False)
     parser.add_argument("-e", "--epochs", type=int, default=1, required=False)
     parser.add_argument(
@@ -129,7 +131,12 @@ def main():
         sweep_id = args.sweep_id
     wandb.agent(
         sweep_id,
-        function=partial(sweep_iteration, is_hpc=args.hpc, num_epochs=args.epochs),
+        function=partial(
+            sweep_iteration,
+            is_hpc=args.hpc,
+            num_epochs=args.epochs,
+            num_workers=args.num_workers,
+        ),
         project="Code_Mixing_Sentiment_Classifier",
         count=args.trials,
     )

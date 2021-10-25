@@ -38,6 +38,8 @@ def main():
 
     parser.add_argument("--max_length", default=256, type=int)
 
+    parser.add_argument("--hpc", action="store_true")
+    parser.add_argument("--num_workers", type=int, required=False, default=0)
     parser.add_argument("--debug", default=False, type=bool, required=False)
 
     args = parser.parse_args()
@@ -49,6 +51,7 @@ def main():
         max_length=args.max_length,
         max_epochs=args.max_epochs,
         operation_type=args.operation_type,
+        num_workers=args.num_workers,
     )
 
     logger_configuration = WANDBLoggerConfiguration(
@@ -68,16 +71,18 @@ def main():
         ]
         callbacks.append(finetuning_fn())
 
+    hardware_settings = {"gpus": 1}
+    if args.hpc:
+        hardware_settings.update({"num_nodes": 2, "accelerator": "ddp"})
+
     trainer = Trainer(
         fast_dev_run=args.debug,
-        gpus=1,
-        num_nodes=2,
-        accelerator="ddp",
         logger=wandb_logger,
         callbacks=callbacks,
         log_every_n_steps=10,
         weights_summary="top",
         max_epochs=classifier_configuration.max_epochs,
+        **hardware_settings,
     )
 
     wandb_logger.watch(model)

@@ -56,6 +56,7 @@ def get_model_and_datamodule(
         batch_size=configuration.batch_size,
         max_length=configuration.max_length,
         padding="max_length",
+        num_workers=configuration.num_workers,
     )
 
     # setup model - note how we refer to sweep parameters with wandb.config

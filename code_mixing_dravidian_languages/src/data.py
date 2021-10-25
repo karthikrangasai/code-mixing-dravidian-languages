@@ -67,6 +67,7 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
         batch_size: int = 8,
         max_length: int = 128,
         padding: str = "max_length",
+        num_workers: int = 0,
         DATA_FOLDER_PATH: str = DATA_FOLDER_PATH,
     ):
         assert language in ["tamil", "kannada", "malayalam"]
@@ -77,6 +78,7 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
         self.padding = padding
         self.language = language
         self.batch_size = batch_size
+        self.num_workers = num_workers
         self.DATA_FOLDER_PATH = DATA_FOLDER_PATH
 
     @staticmethod
@@ -151,6 +153,8 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
             collate_fn=default_data_collator,
             shuffle=True,
             drop_last=True,
+            num_workers=self.num_workers,
+            pin_memory=True,
         )
 
     def val_dataloader(self):
@@ -159,6 +163,8 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
             batch_size=self.batch_size,
             collate_fn=default_data_collator,
             drop_last=True,
+            num_workers=self.num_workers,
+            pin_memory=True,
         )
 
     def test_dataloader(self):
@@ -167,6 +173,8 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
             batch_size=self.batch_size,
             collate_fn=default_data_collator,
             drop_last=True,
+            num_workers=self.num_workers,
+            pin_memory=True,
         )
 
     def teardown(self, stage):
