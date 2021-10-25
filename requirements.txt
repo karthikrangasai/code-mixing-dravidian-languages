@@ -5,6 +5,7 @@ torch==1.9.1
 pytorch-lightning==1.4.9
 
 nltk
+sklearn
 transformers>=4.11.0
 datasets>=1.12.0
 spacy>=3.1.0
