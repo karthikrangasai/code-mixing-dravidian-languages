@@ -5,6 +5,7 @@ import pytorch_lightning as pl
 from torch.nn import functional as F
 from datasets import load_metric
 from transformers import AutoModel
+from transformers.optimization import AdamW
 
 
 class CodeMixingSentimentClassifier(pl.LightningModule):
@@ -93,7 +94,7 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
             if p.requires_grad:
                 _model_parameters.append(p)
 
-        optimizer = torch.optim.Adam(
+        optimizer = AdamW(
             _model_parameters,
             lr=self.learning_rate,
         )
@@ -103,4 +104,4 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
         if scheduler is None:
             return optimizer
 
-        return optimizer, scheduler
+        return [optimizer], [scheduler]
