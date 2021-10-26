@@ -77,6 +77,12 @@ def run():
             enable_model_summary=False,
         )
 
+    print(
+        trainer.global_rank,
+        trainer.training_type_plugin.cluster_environment.master_address(),
+        trainer.training_type_plugin.cluster_environment.master_port(),
+    )
+
     trainer.fit(model, train_dataloaders=train_data, val_dataloaders=val_data)
     trainer.test(model, dataloaders=test_data)
 

@@ -98,6 +98,12 @@ def main():
         **hardware_settings,
     )
 
+    print(
+        trainer.global_rank,
+        trainer.training_type_plugin.cluster_environment.master_address(),
+        trainer.training_type_plugin.cluster_environment.master_port(),
+    )
+
     if not args.disable_wandb:
         wandb_logger.watch(model)
 
