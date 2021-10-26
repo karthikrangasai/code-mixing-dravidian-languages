@@ -38,7 +38,11 @@ def main():
 
     parser.add_argument("--max_length", default=256, type=int)
 
-    parser.add_argument("--hpc", action="store_true")
+    parser.add_argument(
+        "--gpus", choices=[1, 12, 21, 22], default=1, type=int, required=False
+    )
+    parser.add_argument("--disable_wandb", action="store_true", required=False)
+    parser.add_argument("--ckpt_path", type=str, required=False, default="")
     parser.add_argument("--num_workers", type=int, required=False, default=0)
     parser.add_argument("--debug", default=False, type=bool, required=False)
 
@@ -53,27 +57,36 @@ def main():
         operation_type=args.operation_type,
         num_workers=args.num_workers,
     )
-
-    logger_configuration = WANDBLoggerConfiguration(
-        group=f"{classifier_configuration.backbone}",
-        job_type=f"{classifier_configuration.operation_type}",
-        name=f"{classifier_configuration.language}_{classifier_configuration.learning_rate}",
-        config=asdict(classifier_configuration),
-    )
-
     model, datamodule = get_model_and_datamodule(classifier_configuration)
-    wandb_logger = get_logger(logger_configuration)
-    callbacks = [early_stopping, checkpoint_callback, lr_monitor]
 
+    if not args.disable_wandb:
+        logger_configuration = WANDBLoggerConfiguration(
+            group=f"{classifier_configuration.backbone}",
+            job_type=f"{classifier_configuration.operation_type}",
+            name=f"{classifier_configuration.language}_{classifier_configuration.learning_rate}",
+            config=asdict(classifier_configuration),
+        )
+        wandb_logger = get_logger(logger_configuration)
+    else:
+        wandb_logger = True
+
+    callbacks = [early_stopping, checkpoint_callback, lr_monitor]
     if classifier_configuration.finetuning_strategy is not None:
         finetuning_fn = FINE_TUNING_MAPPING[
             classifier_configuration.finetuning_strategy
         ]
         callbacks.append(finetuning_fn())
 
-    hardware_settings = {"gpus": 1}
-    if args.hpc:
-        hardware_settings.update({"num_nodes": 2, "accelerator": "ddp"})
+    if args.gpus == 1:
+        hardware_settings = {"gpus": 1}
+    elif args.gpus == 12:
+        hardware_settings = {"num_nodes": 1, "gpus": 2, "accelerator": "ddp"}
+    elif args.gpus == 21:
+        hardware_settings = {"num_nodes": 2, "gpus": 1, "accelerator": "ddp"}
+    elif args.gpus == 22:
+        hardware_settings = {"num_nodes": 2, "gpus": 2, "accelerator": "ddp"}
+    else:
+        hardware_settings = {"gpus": 0}
 
     trainer = Trainer(
         fast_dev_run=args.debug,
@@ -85,10 +98,17 @@ def main():
         **hardware_settings,
     )
 
-    wandb_logger.watch(model)
-    trainer.fit(model, datamodule=datamodule)
+    if not args.disable_wandb:
+        wandb_logger.watch(model)
+
+    if args.ckpt_path != "":
+        trainer.fit(model, datamodule=datamodule, ckpt_path=args.ckpt_path)
+    else:
+        trainer.fit(model, datamodule=datamodule)
     trainer.test(model, datamodule=datamodule)
-    wandb.finish()
+
+    if not args.disable_wandb:
+        wandb.finish()
 
 
 if __name__ == "__main__":
