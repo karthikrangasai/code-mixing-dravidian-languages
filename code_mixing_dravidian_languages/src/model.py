@@ -62,7 +62,14 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
             predictions=preds, references=y, average="weighted"
         )
 
-        self.log(f"{prefix}_loss", loss, prog_bar=True, on_step=True, on_epoch=True)
+        self.log(
+            f"{prefix}_loss",
+            loss,
+            prog_bar=True,
+            on_step=True,
+            on_epoch=True,
+            sync_dist=True,
+        )
 
         metrics = {
             f"{prefix}_accuracy": acc["accuracy"],
@@ -70,7 +77,7 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
             f"{prefix}_f1_micro": f1_micro["f1"],
             f"{prefix}_f1_weighted": f1_weighted["f1"],
         }
-        self.log_dict(metrics, logger=True, on_step=True, on_epoch=True)
+        self.log_dict(metrics, logger=True, on_step=True, on_epoch=True, sync_dist=True)
         return loss
 
     def training_step(self, batch, batch_idx):
