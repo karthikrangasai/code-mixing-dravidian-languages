@@ -63,7 +63,6 @@ def run():
             num_nodes=1,
             num_sanity_val_steps=0,
             max_epochs=1,
-            enable_model_summary=False,
             accelerator="ddp",
         )
     elif args.hpc2:
@@ -74,7 +73,6 @@ def run():
             accelerator="ddp",
             num_sanity_val_steps=0,
             max_epochs=1,
-            enable_model_summary=False,
         )
 
     print(
