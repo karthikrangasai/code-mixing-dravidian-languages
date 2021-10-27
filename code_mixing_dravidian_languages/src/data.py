@@ -137,19 +137,19 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
                 filepath=datafiles["train"],
                 tokenizer=self.tokenizer,
                 language=self.language,
-                max_length=self.max_length,
+                max_token_len=self.max_length,
             ),
             "val": CodeMixingSentimentClassifierDataset(
                 filepath=datafiles["val"],
                 tokenizer=self.tokenizer,
                 language=self.language,
-                max_length=self.max_length,
+                max_token_len=self.max_length,
             ),
             "test": CodeMixingSentimentClassifierDataset(
                 filepath=datafiles["test"],
                 tokenizer=self.tokenizer,
                 language=self.language,
-                max_length=self.max_length,
+                max_token_len=self.max_length,
             ),
         }
 

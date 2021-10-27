@@ -153,7 +153,7 @@ if __name__ == "__main__":
     parser.add_argument("--language", default="tamil", type=str, required=False)
     parser.add_argument("--max_length", default=256, type=int)
     parser.add_argument(
-        "--gpus", choices=[1, 12, 21, 22], default=1, type=int, required=False
+        "--gpus", choices=[0, 1, 12, 21, 22], default=1, type=int, required=False
     )
     parser.add_argument("--disable_wandb", action="store_true", required=False)
     parser.add_argument("--data_folder_path", required=False, default=DATA_FOLDER_PATH)
