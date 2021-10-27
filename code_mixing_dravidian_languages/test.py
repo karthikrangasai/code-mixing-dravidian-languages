@@ -49,6 +49,7 @@ def run():
     parser = ArgumentParser()
     parser.add_argument("--hpc1", action="store_true")
     parser.add_argument("--hpc2", action="store_true")
+    parser.add_argument("--hpc3", action="store_true")
     args = parser.parse_args()
 
     train_data = DataLoader(RandomDataset(32, 64), batch_size=2)
