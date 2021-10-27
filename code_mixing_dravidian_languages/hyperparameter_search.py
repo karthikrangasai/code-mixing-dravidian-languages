@@ -106,14 +106,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("--sweep_id", type=str, default=None, required=False)
-    parser.add_argument(
-        "--sampler",
-        type=str,
-        default="random",
-        required=False,
-        choices=["random", "grid", "bayes"],
-    )
-
+    parser.add_argument("--sampler", type=str, default="random", required=False, choices=["random", "grid", "bayes"])
     parser.add_argument("--trials", type=int, default=1, required=False)
     parser.add_argument("--epochs", type=int, default=1, required=False)
     parser.add_argument("--num_workers", type=int, required=False, default=0)
@@ -129,33 +122,10 @@ if __name__ == "__main__":
             "goal": "maximize",
         },
         "parameters": {
-            "backbone": {
-                "values": [
-                    "ai4bharat/indic-bert",
-                    "xlm-roberta-base",
-                    "xlm-roberta-large",
-                ]
-            },
+            "backbone": {"values": ["ai4bharat/indic-bert", "xlm-roberta-base", "xlm-roberta-large"]},
             "batch_size": {"values": [2, 4, 8, 16]},
             "max_length": {"values": [128, 256, 384, 512]},
-            # "lr": {
-            #     "distribution": "log_uniform",
-            #     "min": -16.118095651,  # exp(-18.420680744) = 1e-7
-            #     "max": -6.90775527898,  # exp(0) = 1-3
-            # },
-            "lr": {
-                "values": [
-                    1e-7,
-                    5.5e-7,
-                    1e-6,
-                    5.5e-6,
-                    1e-5,
-                    5.5e-5,
-                    1e-4,
-                    5.5e-4,
-                    1e-3,
-                ],
-            },
+            "learning_rate": {"values": [1e-7, 5.5e-7, 1e-6, 5.5e-6, 1e-5, 5.5e-5, 1e-4, 5.5e-4, 1e-3]},
             "finetuning_strategy": {"values": [None, "freeze"]},
         },
     }
