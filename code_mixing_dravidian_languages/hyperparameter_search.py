@@ -95,15 +95,7 @@ if __name__ == "__main__":
     pl.seed_everything(42)
 
     parser = ArgumentParser()
-    parser.add_argument("--hpc", action="store_true")
     parser.add_argument("--sweep_id", type=str, default=None, required=False)
-    parser.add_argument("--num_workers", type=int, required=False, default=0)
-    parser.add_argument("--trials", type=int, default=1, required=False)
-    parser.add_argument("--epochs", type=int, default=1, required=False)
-    parser.add_argument("--data_folder_path", required=False, default=DATA_FOLDER_PATH)
-    parser.add_argument(
-        "--gpus", choices=[1, 12, 21, 22], default=1, type=int, required=False
-    )
     parser.add_argument(
         "--sampler",
         type=str,
@@ -111,6 +103,14 @@ if __name__ == "__main__":
         required=False,
         choices=["random", "grid", "bayes"],
     )
+
+    parser.add_argument("--trials", type=int, default=1, required=False)
+    parser.add_argument("--epochs", type=int, default=1, required=False)
+    parser.add_argument("--num_workers", type=int, required=False, default=0)
+    parser.add_argument(
+        "--gpus", choices=[1, 12, 21, 22], default=1, type=int, required=False
+    )
+    parser.add_argument("--data_folder_path", required=False, default=DATA_FOLDER_PATH)
     args = parser.parse_args()
 
     sweep_config = {
@@ -161,7 +161,6 @@ if __name__ == "__main__":
         sweep_id,
         function=partial(
             sweep_iteration,
-            is_hpc=args.hpc,
             num_epochs=args.epochs,
             num_workers=args.num_workers,
             gpus=args.gpus,
