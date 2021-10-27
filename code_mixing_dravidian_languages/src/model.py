@@ -1,12 +1,13 @@
-from typing import Dict
+from typing import Dict, Union
 
 import torch
 import pytorch_lightning as pl
+from pytorch_lightning.utilities.exceptions import MisconfigurationException
 from torch.nn import functional as F
 from datasets import load_metric
 from transformers import AutoModel
 from transformers.trainer_pt_utils import get_parameter_names
-from transformers.optimization import AdamW
+from transformers.optimization import AdamW, get_scheduler
 
 
 class CodeMixingSentimentClassifier(pl.LightningModule):
@@ -16,6 +17,8 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
         batch_size: int = 8,
         num_classes: int = 5,
         learning_rate: float = 1e-5,
+        lr_scheduler: str = "linear",
+        num_warmup_steps: Union[int, float] = 0.05,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -28,6 +31,9 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
         self.learning_rate = learning_rate
 
         self.batch_size = batch_size
+
+        self.lr_scheduler = lr_scheduler
+        self.num_warmup_steps = num_warmup_steps
 
         self.f1_metric = load_metric("f1")
         self.accuracy = load_metric("accuracy")
@@ -83,6 +89,45 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         self._common_step(batch, batch_idx, prefix="test")
 
+    def get_num_training_steps(self) -> int:
+        """Total training steps inferred from datamodule and devices."""
+        if not getattr(self, "trainer", None):
+            raise MisconfigurationException("The LightningModule isn't attached to the trainer yet.")
+        if isinstance(self.trainer.limit_train_batches, int) and self.trainer.limit_train_batches != 0:
+            num_batches = self.trainer.limit_train_batches
+        elif isinstance(self.trainer.limit_train_batches, float):
+            # limit_train_batches is a percentage of batches
+            dataset_size = len(self.train_dataloader())
+            num_batches = int(dataset_size * self.trainer.limit_train_batches)
+        else:
+            num_batches = len(self.train_dataloader())
+
+        num_devices = max(1, self.trainer.num_gpus, self.trainer.num_processes)
+        if self.trainer.tpu_cores:
+            num_devices = max(num_devices, self.trainer.tpu_cores)
+
+        effective_batch_size = self.trainer.accumulate_grad_batches * num_devices
+        max_estimated_steps = (num_batches // effective_batch_size) * self.trainer.max_epochs
+
+        if self.trainer.max_steps and self.trainer.max_steps < max_estimated_steps:
+            return self.trainer.max_steps
+        return max_estimated_steps
+
+    @staticmethod
+    def _compute_warmup(num_training_steps: int, num_warmup_steps: Union[int, float]) -> int:
+        if isinstance(num_warmup_steps, float) and (num_warmup_steps > 1 or num_warmup_steps < 0):
+            raise MisconfigurationException("`num_warmup_steps` as float should be provided between 0 and 1.")
+
+        if isinstance(num_warmup_steps, int):
+            if num_warmup_steps < num_training_steps:
+                return num_warmup_steps
+            raise MisconfigurationException("`num_warmup_steps` as int should be less than `num_training_steps`.")
+
+        if isinstance(num_warmup_steps, float):
+            # Convert float values to percentage of training steps to use as warmup
+            num_warmup_steps *= num_training_steps
+        return round(num_warmup_steps)
+
     def configure_optimizers(self):
         decay_parameters = get_parameter_names(self.backbone, [torch.nn.LayerNorm])
         decay_parameters = [name for name in decay_parameters if "bias" not in name]
@@ -90,7 +135,7 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
             {
                 "params": [p for n, p in self.backbone.named_parameters() if n in decay_parameters]
                 + [p for n, p in self.classifier.named_parameters()],
-                "weight_decay": 1e-2,
+                "weight_decay": 1e-1,
             },
             {
                 "params": [p for n, p in self.backbone.named_parameters() if n not in decay_parameters],
@@ -98,5 +143,14 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
             },
         ]
         optimizer = AdamW(optimizer_grouped_parameters, lr=self.learning_rate, correct_bias=True)
+
+        if self.lr_scheduler is not None:
+            lr_scheduler = get_scheduler(
+                name=self.lr_scheduler,
+                optimizer=optimizer,
+                num_warmup_steps=self._compute_warmup(self.num_warmup_steps),
+                num_training_steps=self.get_num_training_steps(),
+            )
+            return [optimizer], [lr_scheduler]
 
         return optimizer

@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from typing import Union
 import wandb
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer
@@ -33,6 +34,8 @@ def main(
     num_workers: int,
     debug: bool,
     data_folder_path: str,
+    lr_scheduler: str,
+    num_warmup_steps: Union[int, float],
 ) -> None:
 
     # Setup Data
@@ -53,6 +56,8 @@ def main(
             num_classes=5,
             learning_rate=learning_rate,
             batch_size=batch_size,
+            lr_scheduler=lr_scheduler,
+            num_warmup_steps=num_warmup_steps,
         )
     else:
         model = CodeMixingSentimentClassifier.load_from_checkpoint(checkpoint_path=ckpt_path)
@@ -142,6 +147,8 @@ if __name__ == "__main__":
     parser.add_argument("--backbone", default="ai4bharat/indic-bert", type=str, required=False)
     parser.add_argument("--language", default="tamil", type=str, required=False)
     parser.add_argument("--max_length", default=256, type=int)
+    parser.add_argument("--lr_scheduler", type=str, default="linear", required=False)
+    parser.add_argument("--num_warmup_steps", type=Union[int, float], default=0.1, required=False)
     parser.add_argument("--gpus", choices=[0, 1, 12, 21, 22], default=1, type=int, required=False)
     parser.add_argument("--disable_wandb", action="store_true", required=False)
     parser.add_argument("--data_folder_path", required=False, default=DATA_FOLDER_PATH)
@@ -170,4 +177,6 @@ if __name__ == "__main__":
         num_workers=args.num_workers,
         debug=args.debug,
         data_folder_path=args.data_folder_path,
+        lr_scheduler=args.lr_scheduler,
+        num_warmup_steps=args.num_warmup_steps,
     )
