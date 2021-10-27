@@ -5,6 +5,7 @@ import pytorch_lightning as pl
 from torch.nn import functional as F
 from datasets import load_metric
 from transformers import AutoModel
+from transformers.trainer_pt_utils import get_parameter_names
 from transformers.optimization import AdamW
 
 
@@ -19,7 +20,7 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
-        self.backbone = AutoModel.from_pretrained(backbone)
+        self.backbone: torch.nn.Module = AutoModel.from_pretrained(backbone)
         self.num_classes = num_classes
         hidden_size = self.backbone.config.hidden_size
         self.classifier = torch.nn.Linear(hidden_size, self.num_classes)
@@ -91,24 +92,29 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
         self._common_step(batch, batch_idx, prefix="test")
 
     def configure_optimizers(self):
-        _model_parameters = []
-
-        for p in self.backbone.parameters():
-            if p.requires_grad:
-                _model_parameters.append(p)
-
-        for p in self.classifier.parameters():
-            if p.requires_grad:
-                _model_parameters.append(p)
-
+        decay_parameters = get_parameter_names(self.backbone, [torch.nn.LayerNorm])
+        decay_parameters = [name for name in decay_parameters if "bias" not in name]
+        optimizer_grouped_parameters = [
+            {
+                "params": [
+                    p
+                    for n, p in self.backbone.named_parameters()
+                    if n in decay_parameters
+                ]
+                + [p for n, p in self.classifier.named_parameters()],
+                "weight_decay": 1e-2,
+            },
+            {
+                "params": [
+                    p
+                    for n, p in self.backbone.named_parameters()
+                    if n not in decay_parameters
+                ],
+                "weight_decay": 0.0,
+            },
+        ]
         optimizer = AdamW(
-            _model_parameters,
-            lr=self.learning_rate,
+            optimizer_grouped_parameters, lr=self.learning_rate, correct_bias=True
         )
 
-        scheduler = None
-
-        if scheduler is None:
-            return optimizer
-
-        return [optimizer], [scheduler]
+        return optimizer

@@ -77,6 +77,8 @@ def sweep_iteration(
             logger=wandb_logger,
             callbacks=callbacks,
             max_epochs=num_epochs,
+            accumulate_grad_batches=2,
+            num_sanity_val_steps=0,
             **hardware_settings,
         )
 
@@ -126,12 +128,25 @@ if __name__ == "__main__":
                     "xlm-roberta-large",
                 ]
             },
-            "batch_size": {"values": [4, 8, 16]},
-            "max_length": {"values": [128, 258, 384, 512]},
+            "batch_size": {"values": [2, 4, 8, 16]},
+            "max_length": {"values": [128, 256, 384, 512]},
+            # "lr": {
+            #     "distribution": "log_uniform",
+            #     "min": -16.118095651,  # exp(-18.420680744) = 1e-7
+            #     "max": -6.90775527898,  # exp(0) = 1-3
+            # },
             "lr": {
-                "distribution": "log_uniform",
-                "min": -18.420680744,  # exp(-18.420680744) = 1e-8
-                "max": 0,  # exp(0) = 1
+                "values": [
+                    1e-7,
+                    5.5e-7,
+                    1e-6,
+                    5.5e-6,
+                    1e-5,
+                    5.5e-5,
+                    1e-4,
+                    5.5e-4,
+                    1e-3,
+                ],
             },
             "finetuning_strategy": {"values": [None, "freeze"]},
         },

@@ -62,9 +62,7 @@ def main(
     if not disable_wandb:
         wandb_logger = WandbLogger(
             project="Code_Mixing_Sentiment_Classifier",
-            group=f"{backbone}",
-            job_type=f"{operation_type}",
-            name=f"{language}_{learning_rate}",
+            name=f"{backbone}_{operation_type}_{language}_{learning_rate}",
             log_model=True,
             id=wandb_run_id,
             config={
@@ -83,14 +81,14 @@ def main(
     callbacks = [
         # EarlyStopping Callback
         EarlyStopping(
-            monitor="val_accuracy",
+            monitor="val_accuracy_epoch",
             patience=3,
             mode="max",
         ),
         # Checkpoint Callback
         ModelCheckpoint(
             filename="{epoch}-{val_loss:.2f}-{val_accuracy:.2f}",
-            monitor="val_accuracy",
+            monitor="val_accuracy_epoch",
             save_top_k=1,
             mode="max",
         ),
@@ -119,6 +117,8 @@ def main(
         log_every_n_steps=10,
         weights_summary="top",
         max_epochs=max_epochs,
+        accumulate_grad_batches=2,
+        num_sanity_val_steps=0,
         **hardware_settings,
     )
 
