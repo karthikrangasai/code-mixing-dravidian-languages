@@ -160,7 +160,7 @@ if __name__ == "__main__":
     parser.add_argument("--ckpt_path", type=str, required=False, default="")
     parser.add_argument("--wandb_run_id", type=str, required=False, default=None)
     parser.add_argument("--num_workers", type=int, required=False, default=0)
-    parser.add_argument("--debug", default=False, type=bool, required=False)
+    parser.add_argument("--debug", action="store_true", required=False)
     args = parser.parse_args()
 
     if (args.ckpt_path == "" and args.wandb_run_id is not None) or (
