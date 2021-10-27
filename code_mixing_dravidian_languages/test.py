@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 from pytorch_lightning import LightningModule, Trainer
+from pytorch_lightning.loggers import WandbLogger
 
 
 class RandomDataset(Dataset):
@@ -56,6 +57,15 @@ def run():
 
     model = BoringModel()
 
+    wandb_logger = WandbLogger(
+        project="Code_Mixing_Sentiment_Classifier",
+        group="tests",
+        job_type="issue_template_tests",
+        name="wandb_testing",
+        log_model=True,
+        id="",
+    )
+
     if args.hpc1:
         trainer = Trainer(
             default_root_dir=os.getcwd(),
@@ -64,6 +74,7 @@ def run():
             num_sanity_val_steps=0,
             max_epochs=1,
             accelerator="ddp",
+            logger=wandb_logger,
         )
     elif args.hpc2:
         trainer = Trainer(
@@ -73,6 +84,7 @@ def run():
             accelerator="ddp",
             num_sanity_val_steps=0,
             max_epochs=1,
+            logger=wandb_logger,
         )
 
     print(
