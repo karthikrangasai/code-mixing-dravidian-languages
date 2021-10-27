@@ -86,6 +86,16 @@ def run():
             max_epochs=1,
             logger=wandb_logger,
         )
+    elif args.hpc3:
+        trainer = Trainer(
+            default_root_dir=os.getcwd(),
+            gpus=2,
+            num_nodes=2,
+            accelerator="ddp",
+            num_sanity_val_steps=0,
+            max_epochs=1,
+            logger=wandb_logger,
+        )
 
     print(
         trainer.global_rank,
