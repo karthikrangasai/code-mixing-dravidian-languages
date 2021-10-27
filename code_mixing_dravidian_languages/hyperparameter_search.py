@@ -1,59 +1,79 @@
 import os
-import sys
-
-print(sys.prefix)
 from argparse import ArgumentParser
-from dataclasses import asdict
 from functools import partial
 
-import pytorch_lightning as pl
 import wandb
+import pytorch_lightning as pl
 from pytorch_lightning import Trainer
+from pytorch_lightning.loggers import WandbLogger
+from code_mixing_dravidian_languages import DATA_FOLDER_PATH
 
 from code_mixing_dravidian_languages.src import (
-    CodeMixingSentimentClassifierConfiguration,
-    WANDBLoggerConfiguration,
+    CodeMixingSentimentClassifierDataModule,
+    CodeMixingSentimentClassifier,
 )
 from code_mixing_dravidian_languages.src.finetuning import FINE_TUNING_MAPPING
-from code_mixing_dravidian_languages.utils import get_model_and_datamodule, get_logger
 
 
-def sweep_iteration(is_hpc: bool, num_epochs: int, num_workers: int):
+def sweep_iteration(
+    num_epochs: int, num_workers: int, gpus: int, data_folder_path: str
+):
     with wandb.init() as run:
         config = run.config
 
-        classifier_configuration = CodeMixingSentimentClassifierConfiguration(
-            backbone=config.backbone,
-            learning_rate=config.lr,
-            batch_size=config.batch_size,
-            num_workers=num_workers,
-            max_length=config.max_length,
-            max_epochs=3,
-            operation_type="hparams_search",
-            finetuning_strategy=config.finetuning_strategy,
-        )
-        logger_configuration = WANDBLoggerConfiguration(
-            group=f"{classifier_configuration.backbone}",
-            job_type=f"{classifier_configuration.operation_type}",
-            name=f"{classifier_configuration.language}_{classifier_configuration.learning_rate}",
-            config=asdict(classifier_configuration),
-        )
-
         callbacks = []
-        if classifier_configuration.finetuning_strategy is not None:
-            finetuning_fn = FINE_TUNING_MAPPING[
-                classifier_configuration.finetuning_strategy
-            ]
+        if config.finetuning_strategy is not None:
+            finetuning_fn = FINE_TUNING_MAPPING[config.finetuning_strategy]
             callbacks.append(finetuning_fn())
 
-        model, datamodule = get_model_and_datamodule(classifier_configuration)
-        wandb_logger = get_logger(logger_configuration)
+        # Setup Data
+        datamodule = CodeMixingSentimentClassifierDataModule(
+            backbone=config.backbone,
+            language=config.language,
+            batch_size=config.batch_size,
+            max_length=config.max_length,
+            padding="max_length",
+            num_workers=num_workers,
+            data_folder_path=data_folder_path,
+        )
 
-        hardware_settings = {"gpus": 1}
-        if is_hpc:
-            hardware_settings.update({"num_nodes": 2, "accelerator": "ddp"})
+        # Setup Model
+        model = CodeMixingSentimentClassifier(
+            num_classes=5,
+            backbone=config.backbone,
+            learning_rate=config.learning_rate,
+            batch_size=config.batch_size,
+        )
+
+        wandb_logger = WandbLogger(
+            project="Code_Mixing_Sentiment_Classifier",
+            group=config.backbone,
+            job_type="hparams_search",
+            name=f"tamil_{config.learning_rate}",
+            config={
+                "backbone": config.backbone,
+                "learning_rate": config.learning_rate,
+                "batch_size": config.batch_size,
+                "max_length": config.max_length,
+                "max_epochs": config.max_epochs,
+                "operation_type": config.operation_type,
+                "num_workers": num_workers,
+            },
+        )
+
+        if gpus == 1:
+            hardware_settings = {"gpus": 1}
+        elif gpus == 12:
+            hardware_settings = {"num_nodes": 1, "gpus": 2, "accelerator": "ddp"}
+        elif gpus == 21:
+            hardware_settings = {"num_nodes": 2, "gpus": 1, "accelerator": "ddp"}
+        elif gpus == 22:
+            hardware_settings = {"num_nodes": 2, "gpus": 2, "accelerator": "ddp"}
+        else:
+            hardware_settings = {"gpus": 0}
 
         trainer = Trainer(
+            log_every_n_steps=10,
             logger=wandb_logger,
             callbacks=callbacks,
             max_epochs=num_epochs,
@@ -68,17 +88,21 @@ def sweep_iteration(is_hpc: bool, num_epochs: int, num_workers: int):
         wandb.finish()
 
 
-def main():
+if __name__ == "__main__":
+    root_dir = os.path.dirname(os.path.realpath(__file__))
     pl.seed_everything(42)
 
     parser = ArgumentParser()
     parser.add_argument("--hpc", action="store_true")
     parser.add_argument("--sweep_id", type=str, default=None, required=False)
     parser.add_argument("--num_workers", type=int, required=False, default=0)
-    parser.add_argument("-t", "--trials", type=int, default=1, required=False)
-    parser.add_argument("-e", "--epochs", type=int, default=1, required=False)
+    parser.add_argument("--trials", type=int, default=1, required=False)
+    parser.add_argument("--epochs", type=int, default=1, required=False)
+    parser.add_argument("--data_folder_path", required=False, default=DATA_FOLDER_PATH)
     parser.add_argument(
-        "-s",
+        "--gpus", choices=[1, 12, 21, 22], default=1, type=int, required=False
+    )
+    parser.add_argument(
         "--sampler",
         type=str,
         default="random",
@@ -96,31 +120,20 @@ def main():
         },
         "parameters": {
             "backbone": {
-                # Choose from pre-defined values
                 "values": [
                     "ai4bharat/indic-bert",
                     "xlm-roberta-base",
                     "xlm-roberta-large",
                 ]
             },
-            "batch_size": {
-                # Choose from pre-defined values
-                "values": [4, 8, 16]
-            },
-            "max_length": {
-                # Choose from pre-defined values
-                "values": [128, 258, 384, 512]
-            },
+            "batch_size": {"values": [4, 8, 16]},
+            "max_length": {"values": [128, 258, 384, 512]},
             "lr": {
-                # log uniform distribution between exp(min) and exp(max)
                 "distribution": "log_uniform",
                 "min": -18.420680744,  # exp(-18.420680744) = 1e-8
                 "max": 0,  # exp(0) = 1
             },
-            "finetuning_strategy": {
-                # Choose from pre-defined values
-                "values": [None, "freeze"]
-            },
+            "finetuning_strategy": {"values": [None, "freeze"]},
         },
     }
 
@@ -136,12 +149,9 @@ def main():
             is_hpc=args.hpc,
             num_epochs=args.epochs,
             num_workers=args.num_workers,
+            gpus=args.gpus,
+            data_folder_path=args.data_folder_path,
         ),
         project="Code_Mixing_Sentiment_Classifier",
         count=args.trials,
     )
-
-
-if __name__ == "__main__":
-    root_dir = os.path.dirname(os.path.realpath(__file__))
-    main()

@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Dict
 
 import torch
 import pytorch_lightning as pl
@@ -11,9 +11,9 @@ from transformers.optimization import AdamW
 class CodeMixingSentimentClassifier(pl.LightningModule):
     def __init__(
         self,
-        backbone: str,
-        num_classes: int,
-        batch_size: int,
+        backbone: str = "ai4bharat/indic-bert",
+        batch_size: int = 8,
+        num_classes: int = 5,
         learning_rate: float = 1e-5,
     ):
         super().__init__()

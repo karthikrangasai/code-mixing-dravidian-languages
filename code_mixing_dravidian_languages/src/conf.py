@@ -31,4 +31,5 @@ class WANDBLoggerConfiguration:
     group: str
     job_type: str
     name: str
+    id: str
     config: Dict[str, Any]

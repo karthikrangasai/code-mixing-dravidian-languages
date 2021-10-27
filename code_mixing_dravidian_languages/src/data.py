@@ -62,13 +62,13 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
 
     def __init__(
         self,
-        backbone: str,
-        language: str,
+        backbone: str = "ai4bharat/indic-bert",
+        language: str = "tamil",
         batch_size: int = 8,
         max_length: int = 128,
         padding: str = "max_length",
         num_workers: int = 0,
-        DATA_FOLDER_PATH: str = DATA_FOLDER_PATH,
+        data_folder_path: str = DATA_FOLDER_PATH,
     ):
         assert language in ["tamil", "kannada", "malayalam"]
         super().__init__()
@@ -79,23 +79,23 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
         self.language = language
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.DATA_FOLDER_PATH = DATA_FOLDER_PATH
+        self.data_folder_path = data_folder_path
 
     @staticmethod
-    def _check_for_files(DATA_FOLDER_PATH: str, language: str) -> bool:
+    def _check_for_files(data_folder_path: str, language: str) -> bool:
         train_file = Path(
             os.path.join(
-                DATA_FOLDER_PATH, language, f"{language}_sentiment_full_train.tsv"
+                data_folder_path, language, f"{language}_sentiment_full_train.tsv"
             )
         )
         val_file = Path(
             os.path.join(
-                DATA_FOLDER_PATH, language, f"{language}_sentiment_full_dev.tsv"
+                data_folder_path, language, f"{language}_sentiment_full_dev.tsv"
             )
         )
         test_file = Path(
             os.path.join(
-                DATA_FOLDER_PATH,
+                data_folder_path,
                 language,
                 f"{language}_sentiment_full_test_withlabels.tsv",
             )
@@ -109,24 +109,24 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
 
     def prepare_data(self):
         assert CodeMixingSentimentClassifierDataModule._check_for_files(
-            self.DATA_FOLDER_PATH, self.language
+            self.data_folder_path, self.language
         )
 
     def setup(self, stage):
         # Load the data
         datafiles = {
             "train": os.path.join(
-                DATA_FOLDER_PATH,
+                self.data_folder_path,
                 self.language,
                 f"{self.language}_sentiment_full_train.tsv",
             ),
             "val": os.path.join(
-                DATA_FOLDER_PATH,
+                self.data_folder_path,
                 self.language,
                 f"{self.language}_sentiment_full_dev.tsv",
             ),
             "test": os.path.join(
-                DATA_FOLDER_PATH,
+                self.data_folder_path,
                 self.language,
                 f"{self.language}_sentiment_full_test_withlabels.tsv",
             ),
@@ -134,13 +134,22 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
 
         datasets: Dict[str, Dataset] = {
             "train": CodeMixingSentimentClassifierDataset(
-                datafiles["train"], self.tokenizer, self.language, self.max_length
+                filepath=datafiles["train"],
+                tokenizer=self.tokenizer,
+                language=self.language,
+                max_length=self.max_length,
             ),
             "val": CodeMixingSentimentClassifierDataset(
-                datafiles["val"], self.tokenizer, self.language, self.max_length
+                filepath=datafiles["val"],
+                tokenizer=self.tokenizer,
+                language=self.language,
+                max_length=self.max_length,
             ),
             "test": CodeMixingSentimentClassifierDataset(
-                datafiles["test"], self.tokenizer, self.language, self.max_length
+                filepath=datafiles["test"],
+                tokenizer=self.tokenizer,
+                language=self.language,
+                max_length=self.max_length,
             ),
         }
 
