@@ -87,6 +87,7 @@ def sweep_iteration(num_epochs: int, num_workers: int, gpus: int, data_folder_pa
             logger=wandb_logger,
             callbacks=callbacks,
             max_epochs=num_epochs,
+            weights_summary="top",
             accumulate_grad_batches=2,
             num_sanity_val_steps=0,
             **hardware_settings,
