@@ -16,9 +16,7 @@ from code_mixing_dravidian_languages.src.preprocess import (
 
 
 class CodeMixingSentimentClassifierDataset(Dataset):
-    def __init__(
-        self, filepath: str, tokenizer: str, language: str, max_token_len: int = 128
-    ):
+    def __init__(self, filepath: str, tokenizer: str, language: str, max_token_len: int = 128):
         self.data = pd.read_csv(filepath, sep="\t")
         self.tokenizer = tokenizer
         self.language = language
@@ -83,16 +81,8 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
 
     @staticmethod
     def _check_for_files(data_folder_path: str, language: str) -> bool:
-        train_file = Path(
-            os.path.join(
-                data_folder_path, language, f"{language}_sentiment_full_train.tsv"
-            )
-        )
-        val_file = Path(
-            os.path.join(
-                data_folder_path, language, f"{language}_sentiment_full_dev.tsv"
-            )
-        )
+        train_file = Path(os.path.join(data_folder_path, language, f"{language}_sentiment_full_train.tsv"))
+        val_file = Path(os.path.join(data_folder_path, language, f"{language}_sentiment_full_dev.tsv"))
         test_file = Path(
             os.path.join(
                 data_folder_path,
@@ -108,9 +98,7 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
         )
 
     def prepare_data(self):
-        assert CodeMixingSentimentClassifierDataModule._check_for_files(
-            self.data_folder_path, self.language
-        )
+        assert CodeMixingSentimentClassifierDataModule._check_for_files(self.data_folder_path, self.language)
 
     def setup(self, stage):
         # Load the data

@@ -58,9 +58,7 @@ def _clean_text(text):
 
 def _transliterate_text(text, language: str):
     assert language in ["tamil", "kannada", "malayalam"]
-    return sanscript.transliterate(
-        text, sanscript.ITRANS, _transliteration_map[language]
-    )
+    return sanscript.transliterate(text, sanscript.ITRANS, _transliteration_map[language])
 
 
 def _remove_punctuations(text):

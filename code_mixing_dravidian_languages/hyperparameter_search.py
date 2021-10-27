@@ -15,9 +15,7 @@ from code_mixing_dravidian_languages.src import (
 from code_mixing_dravidian_languages.src.finetuning import FINE_TUNING_MAPPING
 
 
-def sweep_iteration(
-    num_epochs: int, num_workers: int, gpus: int, data_folder_path: str
-):
+def sweep_iteration(num_epochs: int, num_workers: int, gpus: int, data_folder_path: str):
     with wandb.init() as run:
         config = run.config
 
@@ -29,7 +27,7 @@ def sweep_iteration(
         # Setup Data
         datamodule = CodeMixingSentimentClassifierDataModule(
             backbone=config.backbone,
-            language=config.language,
+            language="tamil",
             batch_size=config.batch_size,
             max_length=config.max_length,
             padding="max_length",
@@ -55,8 +53,8 @@ def sweep_iteration(
                 "learning_rate": config.learning_rate,
                 "batch_size": config.batch_size,
                 "max_length": config.max_length,
-                "max_epochs": config.max_epochs,
-                "operation_type": config.operation_type,
+                "max_epochs": num_epochs,
+                "operation_type": "train" if config.finetuning_strategy is None else "finetune",
                 "num_workers": num_workers,
             },
         )
@@ -64,11 +62,23 @@ def sweep_iteration(
         if gpus == 1:
             hardware_settings = {"gpus": 1}
         elif gpus == 12:
-            hardware_settings = {"num_nodes": 1, "gpus": 2, "accelerator": "ddp"}
+            hardware_settings = {
+                "num_nodes": 1,
+                "gpus": 2,
+                "accelerator": "ddp",
+            }
         elif gpus == 21:
-            hardware_settings = {"num_nodes": 2, "gpus": 1, "accelerator": "ddp"}
+            hardware_settings = {
+                "num_nodes": 2,
+                "gpus": 1,
+                "accelerator": "ddp",
+            }
         elif gpus == 22:
-            hardware_settings = {"num_nodes": 2, "gpus": 2, "accelerator": "ddp"}
+            hardware_settings = {
+                "num_nodes": 2,
+                "gpus": 2,
+                "accelerator": "ddp",
+            }
         else:
             hardware_settings = {"gpus": 0}
 
@@ -107,9 +117,7 @@ if __name__ == "__main__":
     parser.add_argument("--trials", type=int, default=1, required=False)
     parser.add_argument("--epochs", type=int, default=1, required=False)
     parser.add_argument("--num_workers", type=int, required=False, default=0)
-    parser.add_argument(
-        "--gpus", choices=[1, 12, 21, 22], default=1, type=int, required=False
-    )
+    parser.add_argument("--gpus", choices=[1, 12, 21, 22], default=1, type=int, required=False)
     parser.add_argument("--data_folder_path", required=False, default=DATA_FOLDER_PATH)
     args = parser.parse_args()
 

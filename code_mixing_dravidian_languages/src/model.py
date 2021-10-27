@@ -35,9 +35,7 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
     def forward(self, batch: Dict[str, torch.Tensor]) -> torch.Tensor:
         input_ids = batch["input_ids"].view(self.batch_size, -1)
         attention_mask = batch["attention_mask"].view(self.batch_size, -1)
-        backbone_output = self.backbone(
-            input_ids=input_ids, attention_mask=attention_mask
-        )
+        backbone_output = self.backbone(input_ids=input_ids, attention_mask=attention_mask)
         preds = self.classifier(backbone_output[0][:, 0])
         return preds
 
@@ -53,15 +51,9 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
         loss = F.cross_entropy(y_hat, y)
 
         acc = self.accuracy.compute(predictions=preds, references=y)
-        f1_macro = self.f1_metric.compute(
-            predictions=preds, references=y, average="macro"
-        )
-        f1_micro = self.f1_metric.compute(
-            predictions=preds, references=y, average="macro"
-        )
-        f1_weighted = self.f1_metric.compute(
-            predictions=preds, references=y, average="weighted"
-        )
+        f1_macro = self.f1_metric.compute(predictions=preds, references=y, average="macro")
+        f1_micro = self.f1_metric.compute(predictions=preds, references=y, average="macro")
+        f1_weighted = self.f1_metric.compute(predictions=preds, references=y, average="weighted")
 
         self.log(
             f"{prefix}_loss",
@@ -96,25 +88,15 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
         decay_parameters = [name for name in decay_parameters if "bias" not in name]
         optimizer_grouped_parameters = [
             {
-                "params": [
-                    p
-                    for n, p in self.backbone.named_parameters()
-                    if n in decay_parameters
-                ]
+                "params": [p for n, p in self.backbone.named_parameters() if n in decay_parameters]
                 + [p for n, p in self.classifier.named_parameters()],
                 "weight_decay": 1e-2,
             },
             {
-                "params": [
-                    p
-                    for n, p in self.backbone.named_parameters()
-                    if n not in decay_parameters
-                ],
+                "params": [p for n, p in self.backbone.named_parameters() if n not in decay_parameters],
                 "weight_decay": 0.0,
             },
         ]
-        optimizer = AdamW(
-            optimizer_grouped_parameters, lr=self.learning_rate, correct_bias=True
-        )
+        optimizer = AdamW(optimizer_grouped_parameters, lr=self.learning_rate, correct_bias=True)
 
         return optimizer

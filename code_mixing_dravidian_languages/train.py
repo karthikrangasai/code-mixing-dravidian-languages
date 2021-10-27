@@ -55,9 +55,7 @@ def main(
             batch_size=batch_size,
         )
     else:
-        model = CodeMixingSentimentClassifier.load_from_checkpoint(
-            checkpoint_path=ckpt_path
-        )
+        model = CodeMixingSentimentClassifier.load_from_checkpoint(checkpoint_path=ckpt_path)
 
     if not disable_wandb:
         wandb_logger = WandbLogger(
@@ -141,14 +139,10 @@ if __name__ == "__main__":
     parser.add_argument("--max_epochs", default=10, type=int)
     parser.add_argument("--operation_type", default="train", type=str)
     parser.add_argument("--finetuning_strategy", default=None, type=str, required=False)
-    parser.add_argument(
-        "--backbone", default="ai4bharat/indic-bert", type=str, required=False
-    )
+    parser.add_argument("--backbone", default="ai4bharat/indic-bert", type=str, required=False)
     parser.add_argument("--language", default="tamil", type=str, required=False)
     parser.add_argument("--max_length", default=256, type=int)
-    parser.add_argument(
-        "--gpus", choices=[0, 1, 12, 21, 22], default=1, type=int, required=False
-    )
+    parser.add_argument("--gpus", choices=[0, 1, 12, 21, 22], default=1, type=int, required=False)
     parser.add_argument("--disable_wandb", action="store_true", required=False)
     parser.add_argument("--data_folder_path", required=False, default=DATA_FOLDER_PATH)
     parser.add_argument("--ckpt_path", type=str, required=False, default="")
@@ -157,9 +151,7 @@ if __name__ == "__main__":
     parser.add_argument("--debug", action="store_true", required=False)
     args = parser.parse_args()
 
-    if (args.ckpt_path == "" and args.wandb_run_id is not None) or (
-        args.ckpt_path != "" and args.wandb_run_id is None
-    ):
+    if (args.ckpt_path == "" and args.wandb_run_id is not None) or (args.ckpt_path != "" and args.wandb_run_id is None):
         print("If loading from checkpoint, provide a wandb run id as well.")
 
     main(
