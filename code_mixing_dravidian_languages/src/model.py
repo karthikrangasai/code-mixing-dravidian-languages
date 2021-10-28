@@ -145,11 +145,12 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
         optimizer = AdamW(optimizer_grouped_parameters, lr=self.learning_rate, correct_bias=True)
 
         if self.lr_scheduler is not None:
+            num_training_steps = self.get_num_training_steps()
             lr_scheduler = get_scheduler(
                 name=self.lr_scheduler,
                 optimizer=optimizer,
-                num_warmup_steps=self._compute_warmup(self.num_warmup_steps),
-                num_training_steps=self.get_num_training_steps(),
+                num_warmup_steps=self._compute_warmup(num_training_steps, self.num_warmup_steps),
+                num_training_steps=num_training_steps,
             )
             return [optimizer], [lr_scheduler]
 
