@@ -152,6 +152,11 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
                 num_warmup_steps=self._compute_warmup(num_training_steps, self.num_warmup_steps),
                 num_training_steps=num_training_steps,
             )
-            return [optimizer], [lr_scheduler]
+            lr_scheduler_config = {
+                "scheduler": lr_scheduler,
+                "interval": "step",
+                "frequency": 1,
+            }
+            return [optimizer], [lr_scheduler_config]
 
         return optimizer
