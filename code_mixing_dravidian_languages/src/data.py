@@ -2,7 +2,6 @@ import os
 import pandas as pd
 from pathlib import Path
 from typing import Dict
-from functools import partial
 
 from torch.utils.data import Dataset, DataLoader
 from pytorch_lightning import LightningDataModule
@@ -68,7 +67,7 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
         num_workers: int = 0,
         data_folder_path: str = DATA_FOLDER_PATH,
     ):
-        assert language in ["tamil", "kannada", "malayalam"]
+        assert language in ["tamil", "kannada", "malayalam", "all"]
         super().__init__()
         self.backbone = backbone
         self.tokenizer = AutoTokenizer.from_pretrained(backbone)
@@ -120,7 +119,7 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
             ),
         }
 
-        datasets: Dict[str, Dataset] = {
+        self.datasets: Dict[str, Dataset] = {
             "train": CodeMixingSentimentClassifierDataset(
                 filepath=datafiles["train"],
                 tokenizer=self.tokenizer,
@@ -141,7 +140,7 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
             ),
         }
 
-        setattr(self, "datasets", datasets)
+        # setattr(self, "datasets", datasets)
 
     def train_dataloader(self):
         return DataLoader(

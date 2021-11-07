@@ -145,7 +145,7 @@ if __name__ == "__main__":
     parser.add_argument("--operation_type", default="train", type=str)
     parser.add_argument("--finetuning_strategy", default=None, type=str, required=False)
     parser.add_argument("--backbone", default="ai4bharat/indic-bert", type=str, required=False)
-    parser.add_argument("--language", default="tamil", type=str, required=False)
+    parser.add_argument("--language", default="all", type=str, required=False)
     parser.add_argument("--max_length", default=256, type=int)
     parser.add_argument("--lr_scheduler", type=str, default="linear", required=False)
     parser.add_argument("--num_warmup_steps", type=Union[int, float], default=0.1, required=False)

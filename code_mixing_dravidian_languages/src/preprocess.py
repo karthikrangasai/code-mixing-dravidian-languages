@@ -97,7 +97,7 @@ def _text_preprocess_fn(text, language: str):
     text = _clean_text(text)
     # text = _remove_punctuations(text)
     text = _remove_emoticons(text)
-    text = _transliterate_text(text, language=language)
+    # text = _transliterate_text(text, language=language)
     # print(f"After Preprocessing:  {text}")
 
     # text = _remove_stopwords(text)

@@ -119,9 +119,10 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
             raise MisconfigurationException("`num_warmup_steps` as float should be provided between 0 and 1.")
 
         if isinstance(num_warmup_steps, int):
-            if num_warmup_steps < num_training_steps:
-                return num_warmup_steps
-            raise MisconfigurationException("`num_warmup_steps` as int should be less than `num_training_steps`.")
+            if num_warmup_steps > num_training_steps:
+                raise MisconfigurationException("`num_warmup_steps` as int should be less than `num_training_steps`.")
+            return num_warmup_steps
+            
 
         if isinstance(num_warmup_steps, float):
             # Convert float values to percentage of training steps to use as warmup
