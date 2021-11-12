@@ -66,7 +66,7 @@ def main(
     if not disable_wandb:
         wandb_logger = WandbLogger(
             project="Code_Mixing_Sentiment_Classifier",
-            name=f"{backbone}_{operation_type}_{language}_{learning_rate}",
+            name=f"{dataset}_{backbone}_{operation_type}_{language}_{learning_rate}",
             log_model=True,
             id=wandb_run_id,
             config={
