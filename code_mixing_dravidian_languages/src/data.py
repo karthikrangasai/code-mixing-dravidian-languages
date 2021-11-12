@@ -43,10 +43,11 @@ DATA_METADATA = {
         "name": "CODALAB_HATE_SPEECH",
         "languages": ["tamil"],
         "data_folder_path": os.path.join(DATA_FOLDER_PATH, "codalab_hate_speech"),
-        "num_classes": 2,
+        "num_classes": 3,
         "category_mapping" : {
             "NOT": 0,
             "OFF": 1,
+            "not-Tamil": 2,
         },
         "filenames":{
             "train": lambda language: f"{language}_offensive_train.tsv",
