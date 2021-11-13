@@ -1,23 +1,25 @@
 import re
 import nltk
-import spacy
 import string
 
 from typing import Any, Dict
 
 from indic_transliteration import sanscript
-
+from google.transliteration import transliterate_word
 
 from nltk.corpus import stopwords
-
 nltk.download("stopwords")
-
-# nlp = spacy.load("en_core_web_sm", disable=["parser", "ner"])
 
 _transliteration_map = {
     "tamil": sanscript.TAMIL,
     "kannada": sanscript.KANNADA,
     "malayalam": sanscript.MALAYALAM,
+}
+
+_google_transliteration_map = {
+    "tamil": "ta",
+    "kannada": "kn",
+    "malayalam": "ml",
 }
 
 
@@ -27,6 +29,7 @@ def _clean_text(text):
     review = re.sub(r"\s+https://t.co/[a-zA-Z0-9]*\s", " ", str(review))
     review = re.sub(r"\s+https://t.co/[a-zA-Z0-9]*$", " ", str(review))
     review = review.lower()
+    review = re.sub(r"#(\w+)", "", str(review))
     review = re.sub(r"that's", "that is", str(review))
     review = re.sub(r"there's", "there is", str(review))
     review = re.sub(r"what's", "what is", str(review))
@@ -61,6 +64,11 @@ def _transliterate_text(text, language: str):
     return sanscript.transliterate(text, sanscript.ITRANS, _transliteration_map[language])
 
 
+def _google_transliteration_api_text(text: str, language: str):
+    assert language in ["tamil", "kannada", "malayalam"]
+    return " ".join([transliterate_word(t, lang_code=_google_transliteration_map[language])[0] for t in text.split()])
+    # return transliterate_text(text, lang_code=_google_transliteration_map[language])
+
 def _remove_punctuations(text):
     table = str.maketrans("", "", string.punctuation)
     return text.translate(table)
@@ -80,12 +88,6 @@ def _remove_emoticons(text):
     )
     return emoji_pattern.sub(r"", text)
 
-
-# def _lemmatizate(text):
-#     doc = nlp(text)
-#     return " ".join([token.lemma_ for token in doc])
-
-
 def _remove_stopwords(text):
     stop_words = set(stopwords.words("english"))
     text = [word.lower() for word in text.split() if word.lower() not in stop_words]
@@ -98,6 +100,7 @@ def _text_preprocess_fn(text, language: str):
     # text = _remove_punctuations(text)
     text = _remove_emoticons(text)
     # text = _transliterate_text(text, language=language)
+    text = _google_transliteration_api_text(text, language=language)
     # print(f"After Preprocessing:  {text}")
 
     # text = _remove_stopwords(text)
