@@ -62,12 +62,14 @@ class CodeMixingSentimentClassifierDataset(Dataset):
         filepath: str, 
         tokenizer: str, 
         language: str, 
+        preprocess_fn: str,
         category_mapping: Dict[str, int],
         max_token_len: int = 128
     ):
         self.data = pd.read_csv(filepath, sep="\t")
         self.tokenizer = tokenizer
         self.language = language
+        self.preprocess_fn = preprocess_fn
         self.category_mapping = category_mapping
         self.max_token_len = max_token_len
 
@@ -77,7 +79,7 @@ class CodeMixingSentimentClassifierDataset(Dataset):
     def __getitem__(self, index: int):
         data_row = self.data.iloc[index]
 
-        preprocessed_text = _text_preprocess_fn(data_row["text"], self.language)
+        preprocessed_text = _text_preprocess_fn(data_row["text"], self.language, self.preprocess_fn)
         label = self.category_mapping[data_row["category"]]
 
         sample = self.tokenizer.encode_plus(
@@ -112,6 +114,7 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
         dataset: str,
         backbone: str = "ai4bharat/indic-bert",
         language: str = "tamil",
+        preprocess_fn: str = "google",
         batch_size: int = 8,
         max_length: int = 128,
         padding: str = "max_length",
@@ -125,6 +128,7 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
         self.max_length = max_length
         self.padding = padding
         self.language = language
+        self.preprocess_fn = preprocess_fn
         self.batch_size = batch_size
         self.num_workers = num_workers
         
@@ -160,6 +164,7 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
                 filepath=datafiles["train"],
                 tokenizer=self.tokenizer,
                 language=self.language,
+                preprocess_fn=self.preprocess_fn,
                 max_token_len=self.max_length,
                 category_mapping=self.dataset_metadata["category_mapping"],
             ),
@@ -167,6 +172,7 @@ class CodeMixingSentimentClassifierDataModule(LightningDataModule):
                 filepath=datafiles["val"],
                 tokenizer=self.tokenizer,
                 language=self.language,
+                preprocess_fn=self.preprocess_fn,
                 max_token_len=self.max_length,
                 category_mapping=self.dataset_metadata["category_mapping"],
             ),

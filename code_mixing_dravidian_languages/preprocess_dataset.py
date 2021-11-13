@@ -31,5 +31,5 @@ new_train_df.to_csv(new_train, sep="\t")
 
 ind = 0
 dev_df = pd.read_csv(train, sep="\t")
-new_dev_df = dev_df.apply(_map, sep="\t")
+new_dev_df = dev_df.apply(_map, axis=1)
 new_train_df.to_csv(new_dev, sep="\t")

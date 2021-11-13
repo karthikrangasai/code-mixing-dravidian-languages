@@ -66,8 +66,12 @@ def _transliterate_text(text, language: str):
 
 def _google_transliteration_api_text(text: str, language: str):
     assert language in ["tamil", "kannada", "malayalam"]
-    return " ".join([transliterate_word(t, lang_code=_google_transliteration_map[language])[0] for t in text.split()])
-    # return transliterate_text(text, lang_code=_google_transliteration_map[language])
+    transliterated_tokens = []
+    for t in text.split():
+        _tokens = transliterate_word(t, lang_code=_google_transliteration_map[language])
+        if len(_tokens) > 0:
+            transliterated_tokens.append(_tokens[0])
+    return " ".join(transliterated_tokens)
 
 def _remove_punctuations(text):
     table = str.maketrans("", "", string.punctuation)
@@ -94,15 +98,18 @@ def _remove_stopwords(text):
     return " ".join(text)
 
 
-def _text_preprocess_fn(text, language: str):
+_preprocess_fn_mapping = {
+    "indic": _transliterate_text,
+    "google": _google_transliteration_api_text,
+}
+
+def _text_preprocess_fn(text, language: str = "tamil", preprocess_fn: str = None):
     # print(f"Before Preprocessing: {text}")
     text = _clean_text(text)
     # text = _remove_punctuations(text)
     text = _remove_emoticons(text)
-    # text = _transliterate_text(text, language=language)
-    text = _google_transliteration_api_text(text, language=language)
-    # print(f"After Preprocessing:  {text}")
-
+    if preprocess_fn != None:
+        text = _preprocess_fn_mapping[preprocess_fn](text, language=language)
     # text = _remove_stopwords(text)
     # text = _lemmatizate(text)
     return text

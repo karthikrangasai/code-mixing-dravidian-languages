@@ -26,6 +26,7 @@ def main(
     num_warmup_steps:Union[int, float],
     dataset: str,
     language: str,
+    preprocess_fn: str,
     batch_size: int,
     max_length: int,
     num_workers: int,
@@ -43,6 +44,7 @@ def main(
     datamodule = CodeMixingSentimentClassifierDataModule(
         backbone=backbone,
         language=language,
+        preprocess_fn=preprocess_fn,
         batch_size=batch_size,
         max_length=max_length,
         padding="max_length",
@@ -66,7 +68,7 @@ def main(
     if not disable_wandb:
         wandb_logger = WandbLogger(
             project="Code_Mixing_Sentiment_Classifier",
-            group="3_model_comparision_runs",
+            group="preprocessing_comparision",
             name=f"{dataset}_{backbone}_{operation_type}_{language}_{learning_rate}",
             log_model=True,
             id=wandb_run_id,
@@ -150,6 +152,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_warmup_steps", type=Union[int, float], default=0.1, required=False)
     parser.add_argument("--dataset", required=True, type=str, choices=["fire_2020", "codalab"])
     parser.add_argument("--language", required=True, type=str, choices=["all", "tamil", "malayalam", "kannada"])
+    parser.add_argument("--preprocess_fn", required=False, type=str, default=None, choices=[None, "indic", "google"])
     parser.add_argument("--batch_size", default=8, type=int)
     parser.add_argument("--max_length", default=256, type=int)
     parser.add_argument("--num_workers", type=int, required=False, default=0)
@@ -174,6 +177,7 @@ if __name__ == "__main__":
         
         dataset=args.dataset,
         language=args.language,
+        preprocess_fn=args.preprocess_fn,
         batch_size=args.batch_size,
         max_length=args.max_length,
         num_workers=args.num_workers,
