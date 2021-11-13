@@ -69,7 +69,7 @@ def main(
         wandb_logger = WandbLogger(
             project="Code_Mixing_Sentiment_Classifier",
             group="preprocessing_comparision",
-            name=f"{dataset}_{backbone}_{operation_type}_{language}_{learning_rate}",
+            name=f"{dataset}_{preprocess_fn}_{backbone}_{operation_type}_{language}_{learning_rate}",
             log_model=True,
             id=wandb_run_id,
             config={
