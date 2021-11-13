@@ -16,8 +16,8 @@ def _map(row):
 train = os.path.join(DATA_FOLDER_PATH, "fire_2020_sentiment/tamil/tamil_sentiment_full_train.tsv")
 dev = os.path.join(DATA_FOLDER_PATH, "fire_2020_sentiment/tamil/tamil_sentiment_full_dev.tsv")
 
-os.mkdir(os.path.join(DATA_FOLDER_PATH, "fire_2020_transliterated"))
-os.mkdir(os.path.join(DATA_FOLDER_PATH, "fire_2020_transliterated", "tamil"))
+# os.mkdir(os.path.join(DATA_FOLDER_PATH, "fire_2020_transliterated"))
+# os.mkdir(os.path.join(DATA_FOLDER_PATH, "fire_2020_transliterated", "tamil"))
 
 new_train = os.path.join(DATA_FOLDER_PATH, "fire_2020_transliterated/tamil/tamil_sentiment_full_train.tsv")
 new_dev = os.path.join(DATA_FOLDER_PATH, "fire_2020_transliterated/tamil/tamil_sentiment_full_dev.tsv")
