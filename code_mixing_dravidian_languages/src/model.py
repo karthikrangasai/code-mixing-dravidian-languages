@@ -1,11 +1,12 @@
-from typing import Dict, Union
+from typing import Dict, Union, Tuple
 
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.utilities.exceptions import MisconfigurationException
 from torch.nn import functional as F
 from datasets import load_metric
-from transformers import AutoModel
+from transformers import AutoModel, AutoModelForSequenceClassification
+from transformers.modeling_outputs import SequenceClassifierOutput
 from transformers.trainer_pt_utils import get_parameter_names
 from transformers.optimization import AdamW, get_scheduler
 
@@ -19,63 +20,48 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
         learning_rate: float = 1e-5,
         lr_scheduler: str = "linear",
         num_warmup_steps: Union[int, float] = 0.05,
+        weight_decay: float = 0.01,
     ):
         super().__init__()
         self.save_hyperparameters()
-
-        self.backbone: torch.nn.Module = AutoModel.from_pretrained(backbone)
         self.num_classes = num_classes
-        hidden_size = self.backbone.config.hidden_size
-        self.classifier = torch.nn.Linear(hidden_size, self.num_classes)
-
+        self.model: torch.nn.Module = AutoModelForSequenceClassification.from_pretrained(
+            backbone, num_labels=self.num_classes
+        )
         self.learning_rate = learning_rate
-
         self.batch_size = batch_size
-
         self.lr_scheduler = lr_scheduler
         self.num_warmup_steps = num_warmup_steps
-
+        self.weight_decay = weight_decay
         self.f1_metric = load_metric("f1")
         self.accuracy = load_metric("accuracy")
 
-    def forward(self, batch: Dict[str, torch.Tensor]) -> torch.Tensor:
-        input_ids = batch["input_ids"].view(self.batch_size, -1)
-        attention_mask = batch["attention_mask"].view(self.batch_size, -1)
-        backbone_output = self.backbone(input_ids=input_ids, attention_mask=attention_mask)
-        preds = self.classifier(backbone_output[0][:, 0])
-        return preds
+    def forward(self, inputs: Dict[str, torch.Tensor], labels: torch.Tensor) -> SequenceClassifierOutput:
+        input_ids = inputs["input_ids"].view(self.batch_size, -1)
+        attention_mask = inputs["attention_mask"].view(self.batch_size, -1)
+        return self.model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
 
     def _common_step(self, batch, batch_idx, prefix: str) -> torch.Tensor:
         y: torch.Tensor = batch.pop("labels")
         x: Dict[str, torch.Tensor] = batch
-        y_hat: torch.Tensor = self(x)
-        preds = torch.argmax(torch.log_softmax(y_hat, 0), 1)
+        y_hat: SequenceClassifierOutput = self(x, y)
 
-        y = y.view(-1)
-        y_hat = y_hat.view(-1, self.num_classes)
+        loss: torch.FloatTensor = y_hat.loss
+        logits: torch.FloatTensor = y_hat.logits
 
-        loss = F.cross_entropy(y_hat, y)
-
+        preds = torch.argmax(torch.log_softmax(logits, 0), 1)
         acc = self.accuracy.compute(predictions=preds, references=y)
         f1_macro = self.f1_metric.compute(predictions=preds, references=y, average="macro")
         f1_micro = self.f1_metric.compute(predictions=preds, references=y, average="macro")
         f1_weighted = self.f1_metric.compute(predictions=preds, references=y, average="weighted")
-
-        self.log(
-            f"{prefix}_loss",
-            loss,
-            prog_bar=True,
-            on_step=True,
-            on_epoch=True,
-            sync_dist=True,
-        )
-
         metrics = {
             f"{prefix}_accuracy": acc["accuracy"],
             f"{prefix}_f1_macro": f1_macro["f1"],
             f"{prefix}_f1_micro": f1_micro["f1"],
             f"{prefix}_f1_weighted": f1_weighted["f1"],
         }
+        
+        self.log(f"{prefix}_loss", loss, prog_bar=True, on_step=True, on_epoch=True, sync_dist=True)
         self.log_dict(metrics, logger=True, on_step=True, on_epoch=True, sync_dist=True)
         return loss
 
@@ -88,6 +74,18 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         self._common_step(batch, batch_idx, prefix="test")
+
+    @property
+    def backbone(self):
+        model_type = self.model.config.model_type
+        if model_type == "albert":
+            return self.model.albert
+        elif model_type == "bert":
+            return self.model.bert
+        elif model_type == "xlm-roberta":
+            return self.model.roberta
+        elif model_type == "distilbert":
+            return self.model.distilbert
 
     def get_num_training_steps(self) -> int:
         """Total training steps inferred from datamodule and devices."""
@@ -130,16 +128,15 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
         return round(num_warmup_steps)
 
     def configure_optimizers(self):
-        decay_parameters = get_parameter_names(self.backbone, [torch.nn.LayerNorm])
+        decay_parameters = get_parameter_names(self.model, [torch.nn.LayerNorm])
         decay_parameters = [name for name in decay_parameters if "bias" not in name]
         optimizer_grouped_parameters = [
             {
-                "params": [p for n, p in self.backbone.named_parameters() if n in decay_parameters]
-                + [p for n, p in self.classifier.named_parameters()],
-                "weight_decay": 1e-1,
+                "params": [p for n, p in self.model.named_parameters() if n in decay_parameters and p.requires_grad],
+                "weight_decay": self.weight_decay,
             },
             {
-                "params": [p for n, p in self.backbone.named_parameters() if n not in decay_parameters],
+                "params": [p for n, p in self.model.named_parameters() if n not in decay_parameters and p.requires_grad],
                 "weight_decay": 0.0,
             },
         ]

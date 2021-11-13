@@ -66,6 +66,7 @@ def main(
     if not disable_wandb:
         wandb_logger = WandbLogger(
             project="Code_Mixing_Sentiment_Classifier",
+            group="3_model_comparision_runs",
             name=f"{dataset}_{backbone}_{operation_type}_{language}_{learning_rate}",
             log_model=True,
             id=wandb_run_id,
@@ -101,7 +102,11 @@ def main(
     ]
     if finetuning_strategy is not None:
         finetuning_fn = FINE_TUNING_MAPPING[finetuning_strategy]
-        callbacks.append(finetuning_fn())
+        if finetuning_strategy == "freeze_unfreeze":
+            finetuning_strategy_metadata = {"unfreeze_epoch": max_epochs//2}
+        else:
+            finetuning_strategy_metadata = {}
+        callbacks.append(finetuning_fn(**finetuning_strategy_metadata))
 
     if gpus == 1:
         hardware_settings = {"gpus": 1}
