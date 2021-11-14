@@ -39,6 +39,28 @@ DATA_METADATA = {
             "test": lambda language: f"{language}_sentiment_full_test_withlabels.tsv",
         },
     },
+    "fire_2020_trans":{
+        "name": "FIRE_2020",
+        "languages": ["tamil"],
+        "data_folder_path": os.path.join(DATA_FOLDER_PATH, "fire_2020_transliterated"),
+        "num_classes": 5,
+        "category_mapping" : {
+            "Positive ": 0,
+            "Positive": 0,
+            "Negative": 1,
+            "not-Tamil": 2,
+            "not-Kannada": 2,
+            "not-malayalam": 2,
+            "unknown_state": 3,
+            "unknown state": 3,
+            "Mixed feelings": 4,
+            "Mixed_feelings": 4,
+        },
+        "filenames":{
+            "train": lambda language: f"{language}_sentiment_full_train.tsv",
+            "dev": lambda language: f"{language}_sentiment_full_dev.tsv",
+        },
+    },
     "codalab":{
         "name": "CODALAB_HATE_SPEECH",
         "languages": ["tamil"],

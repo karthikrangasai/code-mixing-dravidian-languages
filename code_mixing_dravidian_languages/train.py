@@ -87,11 +87,11 @@ def main(
 
     callbacks = [
         # EarlyStopping Callback
-        EarlyStopping(
-            monitor="val_accuracy_epoch",
-            patience=3,
-            mode="max",
-        ),
+        # EarlyStopping(
+        #     monitor="val_accuracy_epoch",
+        #     patience=3,
+        #     mode="max",
+        # ),
         # Checkpoint Callback
         ModelCheckpoint(
             filename="{epoch}-{val_loss:.2f}-{val_accuracy:.2f}",
@@ -150,7 +150,7 @@ if __name__ == "__main__":
     parser.add_argument("--learning_rate", default=1e-5, type=float)
     parser.add_argument("--lr_scheduler", type=str, default="linear", required=False)
     parser.add_argument("--num_warmup_steps", type=Union[int, float], default=0.1, required=False)
-    parser.add_argument("--dataset", required=True, type=str, choices=["fire_2020", "codalab"])
+    parser.add_argument("--dataset", required=True, type=str, choices=["fire_2020", "fire_2020_trans", "codalab"])
     parser.add_argument("--language", required=True, type=str, choices=["all", "tamil", "malayalam", "kannada"])
     parser.add_argument("--preprocess_fn", required=False, type=str, default=None, choices=[None, "indic", "google"])
     parser.add_argument("--batch_size", default=8, type=int)
