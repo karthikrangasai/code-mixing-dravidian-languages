@@ -1,3 +1,4 @@
+import os
 from argparse import ArgumentParser
 from typing import Optional, Union
 import wandb
@@ -34,6 +35,7 @@ def main(
     finetuning_strategy: str,
     max_epochs: int, 
     gpus: int,
+    save_dir: str,
     ckpt_path: str,
     wandb_run_id: str,
     disable_wandb: bool,
@@ -69,6 +71,7 @@ def main(
         wandb_logger = WandbLogger(
             project="Code_Mixing_Sentiment_Classifier",
             group="preprocessing_comparision",
+            save_dir=os.path.join(save_dir, "wandb") if save_dir is not None else None,
             name=f"{dataset}_{preprocess_fn}_{backbone}_{operation_type}_{language}_{learning_rate}",
             log_model=True,
             id=wandb_run_id,
@@ -130,6 +133,7 @@ def main(
         max_epochs=max_epochs,
         accumulate_grad_batches=2,
         num_sanity_val_steps=0,
+        default_root_dir=save_dir if save_dir is not None else os.getcwd(),
         **hardware_settings,
     )
 
@@ -160,6 +164,7 @@ if __name__ == "__main__":
     parser.add_argument("--finetuning_strategy", default=None, type=str, required=False)
     parser.add_argument("--max_epochs", default=10, type=int)
     parser.add_argument("--gpus", choices=[0, 1, 12, 21, 22], default=1, type=int, required=False)
+    parser.add_argument("--save_dir", default=None, type=str, required=False)
     parser.add_argument("--ckpt_path", type=str, required=False, default="")
     parser.add_argument("--wandb_run_id", type=str, required=False, default=None)
     parser.add_argument("--disable_wandb", action="store_true", required=False)
@@ -187,6 +192,7 @@ if __name__ == "__main__":
         
         max_epochs=args.max_epochs,
         gpus=args.gpus,
+        save_dir=args.save_dir,
         ckpt_path=args.ckpt_path,
         wandb_run_id=args.wandb_run_id,
         
