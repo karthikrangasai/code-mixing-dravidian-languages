@@ -163,7 +163,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_type", default="hf", type=str, choices= ["hf", "custom"], required=False)
     parser.add_argument("--backbone", default="ai4bharat/indic-bert", type=str, required=False)
     parser.add_argument("--learning_rate", default=5e-5, type=float)
-    parser.add_argument("--lr_scheduler", type=str, default="linear", required=False)
+    parser.add_argument("--lr_scheduler", type=str, default=None, required=False)
     parser.add_argument("--num_warmup_steps", type=Union[int, float], default=0.1, required=False)
     parser.add_argument("--gamma", default=0.1, required=False, type=float)
     parser.add_argument("--reduction", default="mean", required=False, type=str)
