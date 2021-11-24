@@ -101,13 +101,10 @@ class CodeMixingSentimentClassifierDataset(Dataset):
         self.num_classes = num_classes
         self.max_token_len = max_token_len
 
-        self.class_weights = torch.tensor(
-            compute_class_weight(
-                "balanced", 
-                classes=np.arange(self.num_classes),
-                y=self.data["category"].map(self.category_mapping),
-            ),
-            dtype=torch.float
+        self.class_weights = compute_class_weight(
+            "balanced", 
+            classes=np.arange(self.num_classes),
+            y=self.data["category"].map(self.category_mapping),
         )
 
     def __len__(self):

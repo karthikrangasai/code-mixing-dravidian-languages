@@ -96,7 +96,7 @@ class CodeMixingCustomSentimentClassifier(pl.LightningModule):
         preds: torch.Tensor = self(inputs, target)
 
         dataloader: Callable = getattr(self, f"{prefix}_dataloader")
-        class_weights = dataloader().dataset.class_weights
+        class_weights = torch.tensor(dataloader().dataset.class_weights, dtype=torch.float, device=self.device)
         
         loss = focal_loss(
             preds=preds,
