@@ -14,17 +14,21 @@ from code_mixing_dravidian_languages import DATA_FOLDER_PATH
 
 from code_mixing_dravidian_languages.src import (
     CodeMixingSentimentClassifierDataModule,
-    CodeMixingSentimentClassifier,
+    MODEL_MAPPING
 )
 from code_mixing_dravidian_languages.src.data import DATA_METADATA
 from code_mixing_dravidian_languages.src.finetuning import FINE_TUNING_MAPPING
 
 
 def main(
+    model_type: str,
     backbone: str,
     learning_rate: float,
     lr_scheduler: str,
     num_warmup_steps:Union[int, float],
+    gamma: float,
+    reduction: str,
+    dropout: float,
     dataset: str,
     language: str,
     preprocess_fn: str,
@@ -38,6 +42,7 @@ def main(
     save_dir: str,
     ckpt_path: str,
     wandb_run_id: str,
+    early_stopping: bool,
     disable_wandb: bool,
     debug: bool,
 ) -> None:
@@ -56,21 +61,28 @@ def main(
 
     # Setup Model
     if ckpt_path == "":
-        model = CodeMixingSentimentClassifier(
+        model_settings = {}
+        if model_type == "custom":
+            model_settings["gamma"] = gamma
+            model_settings["reduction"] = reduction
+            model_settings["dropout"] = dropout
+
+        model = MODEL_MAPPING[model_type](
             backbone=backbone,
             num_classes=DATA_METADATA[dataset]["num_classes"],
             learning_rate=learning_rate,
             batch_size=batch_size,
             lr_scheduler=lr_scheduler,
             num_warmup_steps=num_warmup_steps,
+            **model_settings,
         )
     else:
-        model = CodeMixingSentimentClassifier.load_from_checkpoint(checkpoint_path=ckpt_path)
+        model = MODEL_MAPPING[model_type].load_from_checkpoint(checkpoint_path=ckpt_path)
 
     if not disable_wandb:
         wandb_logger = WandbLogger(
             project="Code_Mixing_Sentiment_Classifier",
-            group="preprocessing_comparision",
+            group="focal_loss",
             save_dir=os.path.join(save_dir, "wandb") if save_dir is not None else None,
             name=f"{dataset}_{preprocess_fn}_{backbone}_{operation_type}_{language}_{learning_rate}",
             log_model=True,
@@ -89,12 +101,6 @@ def main(
         wandb_logger = True
 
     callbacks = [
-        # EarlyStopping Callback
-        # EarlyStopping(
-        #     monitor="val_accuracy_epoch",
-        #     patience=3,
-        #     mode="max",
-        # ),
         # Checkpoint Callback
         ModelCheckpoint(
             filename="{epoch}-{val_loss:.2f}-{val_accuracy:.2f}",
@@ -105,6 +111,10 @@ def main(
         # LR Monitor
         LearningRateMonitor(logging_interval="step"),
     ]
+    
+    if early_stopping:
+        callbacks.append(EarlyStopping(monitor="val_accuracy_epoch", patience=3, mode="max"))
+    
     if finetuning_strategy is not None:
         finetuning_fn = FINE_TUNING_MAPPING[finetuning_strategy]
         if finetuning_strategy == "freeze_unfreeze":
@@ -150,10 +160,14 @@ if __name__ == "__main__":
     pl.seed_everything(42)
     parser = ArgumentParser()
 
+    parser.add_argument("--model_type", default="hf", type=str, choices= ["hf", "custom"], required=False)
     parser.add_argument("--backbone", default="ai4bharat/indic-bert", type=str, required=False)
-    parser.add_argument("--learning_rate", default=1e-5, type=float)
+    parser.add_argument("--learning_rate", default=5e-5, type=float)
     parser.add_argument("--lr_scheduler", type=str, default="linear", required=False)
     parser.add_argument("--num_warmup_steps", type=Union[int, float], default=0.1, required=False)
+    parser.add_argument("--gamma", default=0.1, required=False, type=float)
+    parser.add_argument("--reduction", default="mean", required=False, type=str)
+    parser.add_argument("--dropout", default=0.2, required=False, type=float)
     parser.add_argument("--dataset", required=True, type=str, choices=["fire_2020", "fire_2020_trans", "codalab"])
     parser.add_argument("--language", required=True, type=str, choices=["all", "tamil", "malayalam", "kannada"])
     parser.add_argument("--preprocess_fn", required=False, type=str, default=None, choices=[None, "indic", "google"])
@@ -161,12 +175,14 @@ if __name__ == "__main__":
     parser.add_argument("--max_length", default=256, type=int)
     parser.add_argument("--num_workers", type=int, required=False, default=0)
     parser.add_argument("--operation_type", default="train", type=str)
-    parser.add_argument("--finetuning_strategy", default=None, type=str, required=False)
+    parser.add_argument("--finetuning_strategy", default=None, type=str, required=False, choices=[None, 'freeze'])
     parser.add_argument("--max_epochs", default=10, type=int)
     parser.add_argument("--gpus", choices=[0, 1, 12, 21, 22], default=1, type=int, required=False)
+    parser.add_argument("--accumulate_grad_batches", default=1, type=int, required=False)
     parser.add_argument("--save_dir", default=None, type=str, required=False)
     parser.add_argument("--ckpt_path", type=str, required=False, default="")
     parser.add_argument("--wandb_run_id", type=str, required=False, default=None)
+    parser.add_argument("--early_stopping", action="store_true", required=False)
     parser.add_argument("--disable_wandb", action="store_true", required=False)
     parser.add_argument("--debug", action="store_true", required=False)
     args = parser.parse_args()
@@ -175,10 +191,14 @@ if __name__ == "__main__":
         print("If loading from checkpoint, provide a wandb run id as well.")
 
     main(
+        model_type=args.model_type,
         backbone=args.backbone,
         learning_rate=args.learning_rate,
         lr_scheduler=args.lr_scheduler,
         num_warmup_steps=args.num_warmup_steps,
+        gamma=args.gamma,
+        reduction=args.reduction,
+        dropout=args.dropout,
         
         dataset=args.dataset,
         language=args.language,
@@ -192,10 +212,12 @@ if __name__ == "__main__":
         
         max_epochs=args.max_epochs,
         gpus=args.gpus,
+        accumulate_grad_batches=args.accumulate_grad_batches,
         save_dir=args.save_dir,
         ckpt_path=args.ckpt_path,
         wandb_run_id=args.wandb_run_id,
         
+        early_stopping=args.early_stopping,
         disable_wandb=args.disable_wandb,
         debug=args.debug,
     )

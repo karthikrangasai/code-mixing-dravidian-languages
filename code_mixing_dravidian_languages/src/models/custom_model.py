@@ -1,17 +1,55 @@
-from typing import Dict, Union, Tuple
+from typing import Callable, Dict, Optional, Union
 
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.utilities.exceptions import MisconfigurationException
-from torch.nn import functional as F
 from datasets import load_metric
-from transformers import AutoModel, AutoModelForSequenceClassification
-from transformers.modeling_outputs import SequenceClassifierOutput
+from transformers import AutoModel
+from code_mixing_dravidian_languages.src.focal_loss import focal_loss
+from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
 from transformers.trainer_pt_utils import get_parameter_names
 from transformers.optimization import AdamW, get_scheduler
 
+class CustomClassifier(torch.nn.Module):
+    def __init__(
+        self,
+        backbone: str,
+        num_labels: int,
+        classifier_dropout: Optional[float] = None
+    ):
+        super().__init__()
+        self.backbone = backbone
+        self.num_labels = num_labels
+        self.model = AutoModel.from_pretrained(backbone)
+        
+        if classifier_dropout is None:
+            _classifier_dropout = getattr(self.model.config, "classifier_dropout", None)
+            _classifier_dropout_prob = getattr(self.model.config, "classifier_dropout_prob", None)
+            if (_classifier_dropout or _classifier_dropout_prob) is not None:
+                classifier_dropout = _classifier_dropout or _classifier_dropout_prob
+            else:
+                classifier_dropout = self.model.config.hidden_dropout_prob
+        
+        self.dense = torch.nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size)
+        self.dropout = torch.nn.Dropout(classifier_dropout)
+        self.linear = torch.nn.Linear(self.model.config.hidden_size, num_labels)
+    
+    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        output: BaseModelOutputWithPoolingAndCrossAttentions = self.model(
+            input_ids=input_ids, attention_mask=attention_mask
+        )
+        last_hidden_state = output.last_hidden_state
+        cls_token = last_hidden_state[:, 0, :]  # take [CLS] token
+        x = self.dropout(cls_token)
+        x = self.dense(x)
+        x = torch.tanh(x)
+        x = self.dropout(x)
+        x = self.linear(x)
+        return x
 
-class CodeMixingSentimentClassifier(pl.LightningModule):
+
+
+class CodeMixingCustomSentimentClassifier(pl.LightningModule):
     def __init__(
         self,
         backbone: str = "ai4bharat/indic-bert",
@@ -21,39 +59,58 @@ class CodeMixingSentimentClassifier(pl.LightningModule):
         lr_scheduler: str = "linear",
         num_warmup_steps: Union[int, float] = 0.05,
         weight_decay: float = 0.01,
+        gamma: float = 0.1,
+        reduction: str = "mean",
+        dropout: float = 0.2,
     ):
         super().__init__()
         self.save_hyperparameters()
         self.num_classes = num_classes
-        self.model: torch.nn.Module = AutoModelForSequenceClassification.from_pretrained(
-            backbone, num_labels=self.num_classes
-        )
         self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.lr_scheduler = lr_scheduler
         self.num_warmup_steps = num_warmup_steps
         self.weight_decay = weight_decay
+
+        self.model = CustomClassifier(
+            backbone=backbone,
+            num_labels=self.num_classes,
+            classifier_dropout=dropout,
+        )
+        self.gamma = gamma
+        self.reduction = reduction
+
         self.f1_metric = load_metric("f1")
         self.accuracy = load_metric("accuracy")
 
-    def forward(self, inputs: Dict[str, torch.Tensor], labels: torch.Tensor) -> SequenceClassifierOutput:
+    def forward(
+        self, inputs: Dict[str, torch.Tensor], labels: torch.Tensor
+    ) -> BaseModelOutputWithPoolingAndCrossAttentions:
         input_ids = inputs["input_ids"].view(self.batch_size, -1)
         attention_mask = inputs["attention_mask"].view(self.batch_size, -1)
         return self.model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
 
     def _common_step(self, batch, batch_idx, prefix: str) -> torch.Tensor:
-        y: torch.Tensor = batch.pop("labels")
-        x: Dict[str, torch.Tensor] = batch
-        y_hat: SequenceClassifierOutput = self(x, y)
+        target: torch.Tensor = batch.pop("labels")
+        inputs: Dict[str, torch.Tensor] = batch
+        preds: torch.Tensor = self(inputs, target)
 
-        loss: torch.FloatTensor = y_hat.loss
-        logits: torch.FloatTensor = y_hat.logits
+        dataloader: Callable = getattr(self, f"{prefix}_dataloader")
+        class_weights = dataloader().dataset.class_weights
+        
+        loss = focal_loss(
+            preds=preds,
+            target=target,
+            alpha=class_weights,
+            gamma=self.gamma,
+            reduction=self.reduction,
+        )
 
-        preds = torch.argmax(torch.log_softmax(logits, 0), 1)
-        acc = self.accuracy.compute(predictions=preds, references=y)
-        f1_macro = self.f1_metric.compute(predictions=preds, references=y, average="macro")
-        f1_micro = self.f1_metric.compute(predictions=preds, references=y, average="macro")
-        f1_weighted = self.f1_metric.compute(predictions=preds, references=y, average="weighted")
+        preds = torch.argmax(torch.log_softmax(preds, 0), 1)
+        acc = self.accuracy.compute(predictions=preds, references=target)
+        f1_macro = self.f1_metric.compute(predictions=preds, references=target, average="macro")
+        f1_micro = self.f1_metric.compute(predictions=preds, references=target, average="macro")
+        f1_weighted = self.f1_metric.compute(predictions=preds, references=target, average="weighted")
         metrics = {
             f"{prefix}_accuracy": acc["accuracy"],
             f"{prefix}_f1_macro": f1_macro["f1"],

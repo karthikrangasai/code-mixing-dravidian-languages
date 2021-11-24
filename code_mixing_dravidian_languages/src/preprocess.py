@@ -108,7 +108,7 @@ def _text_preprocess_fn(text, language: str = "tamil", preprocess_fn: str = None
     text = _clean_text(text)
     # text = _remove_punctuations(text)
     text = _remove_emoticons(text)
-    if preprocess_fn != None:
+    if preprocess_fn is not None:
         text = _preprocess_fn_mapping[preprocess_fn](text, language=language)
     # text = _remove_stopwords(text)
     # text = _lemmatizate(text)
