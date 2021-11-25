@@ -30,6 +30,7 @@ def main(
     gamma: float,
     reduction: str,
     dropout: float,
+    loss_fn: str,
     dataset: str,
     language: str,
     preprocess_fn: str,
@@ -71,6 +72,7 @@ def main(
             model_settings["reduction"] = reduction
             model_settings["dropout"] = dropout
             model_settings["linear_layers"] = linear_layers
+            model_settings["loss_fn"] = loss_fn
 
         model = MODEL_MAPPING[model_type](
             backbone=backbone,
@@ -89,17 +91,33 @@ def main(
             project="Code_Mixing_Sentiment_Classifier",
             group="focal_loss",
             save_dir=os.path.join(save_dir, "wandb") if save_dir is not None else None,
-            name=f"{dataset}_{preprocess_fn}_{backbone}_{operation_type}_{language}_{learning_rate}",
+            name=f"{dataset}_{preprocess_fn}_{backbone}_{operation_type}_{language}_{learning_rate}_{loss_fn}_{finetuning_strategy}",
             log_model=True,
             id=wandb_run_id,
             config={
+                "model_type": model_type,
                 "backbone": backbone,
+                "linear_layers": linear_layers,
                 "learning_rate": learning_rate,
+                "lr_scheduler": lr_scheduler,
+                "num_warmup_steps": num_warmup_steps,
+                "gamma": gamma,
+                "reduction": reduction,
+                "dropout": dropout,
+                "loss_fn": loss_fn,
+                "dataset": dataset,
+                "language": language,
+                "preprocess_fn": preprocess_fn,
                 "batch_size": batch_size,
                 "max_length": max_length,
-                "max_epochs": max_epochs,
-                "operation_type": operation_type,
                 "num_workers": num_workers,
+                "operation_type": operation_type,
+                "finetuning_strategy": finetuning_strategy,
+                "train_bn": train_bn,
+                "max_epochs": max_epochs,
+                "gpus": gpus,
+                "accumulate_grad_batches": accumulate_grad_batches,
+                "deterministic": deterministic,
             },
         )
     else:
@@ -176,6 +194,7 @@ if __name__ == "__main__":
     parser.add_argument("--gamma", default=0.1, required=False, type=float)
     parser.add_argument("--reduction", default="mean", required=False, type=str)
     parser.add_argument("--dropout", default=0.2, required=False, type=float)
+    parser.add_argument("--loss_fn", default="focal_loss", required=False, type=str, choices=["focal_loss", "cross_entropy"])
     parser.add_argument("--dataset", required=True, type=str, choices=["fire_2020", "fire_2020_trans", "codalab"])
     parser.add_argument("--language", required=True, type=str, choices=["all", "tamil", "malayalam", "kannada"])
     parser.add_argument("--preprocess_fn", required=False, type=str, default=None, choices=[None, "indic", "google"])
@@ -183,7 +202,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_length", default=256, type=int)
     parser.add_argument("--num_workers", type=int, required=False, default=0)
     parser.add_argument("--operation_type", default="train", type=str)
-    parser.add_argument("--finetuning_strategy", default=None, type=Union[str, int], required=False)
+    parser.add_argument("--finetuning_strategy", default=None, type=str, required=False)
     parser.add_argument("--train_bn", action="store_true", required=False)
     parser.add_argument("--max_epochs", default=10, type=int)
     parser.add_argument("--gpus", choices=[0, 1, 12, 21, 22], default=1, type=int, required=False)
@@ -200,6 +219,9 @@ if __name__ == "__main__":
     if (args.ckpt_path == "" and args.wandb_run_id is not None) or (args.ckpt_path != "" and args.wandb_run_id is None):
         print("If loading from checkpoint, provide a wandb run id as well.")
 
+    if str.isnumeric(args.finetuning_strategy):
+        args.finetuning_strategy = int(args.finetuning_strategy)
+
     pl.seed_everything(args.seed)
     main(
         model_type=args.model_type,
@@ -211,6 +233,7 @@ if __name__ == "__main__":
         gamma=args.gamma,
         reduction=args.reduction,
         dropout=args.dropout,
+        loss_fn=args.loss_fn,
         
         dataset=args.dataset,
         language=args.language,

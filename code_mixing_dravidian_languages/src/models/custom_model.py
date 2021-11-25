@@ -1,6 +1,7 @@
 from typing import Callable, Dict, List, Optional, Union
 
 import torch
+from torch.nn import functional as F
 import pytorch_lightning as pl
 from pytorch_lightning.utilities.exceptions import MisconfigurationException
 from datasets import load_metric
@@ -64,6 +65,7 @@ class CodeMixingCustomSentimentClassifier(pl.LightningModule):
         reduction: str = "mean",
         dropout: float = 0.2,
         linear_layers: List[int] = [256, 32],
+        loss_fn: str = "focal_loss",
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -82,6 +84,7 @@ class CodeMixingCustomSentimentClassifier(pl.LightningModule):
         )
         self.gamma = gamma
         self.reduction = reduction
+        self.loss_fn = loss_fn
 
         self.f1_metric = load_metric("f1")
         self.accuracy = load_metric("accuracy")
@@ -100,14 +103,10 @@ class CodeMixingCustomSentimentClassifier(pl.LightningModule):
 
         dataloader: Callable = getattr(self, f"{prefix}_dataloader")
         class_weights = torch.tensor(dataloader().dataset.class_weights, dtype=torch.float, device=self.device)
-        
-        loss = focal_loss(
-            preds=preds,
-            target=target,
-            alpha=class_weights,
-            gamma=self.gamma,
-            reduction=self.reduction,
-        )
+        if self.loss_fn == "focal_loss":
+            loss = focal_loss(preds=preds, target=target, alpha=class_weights, gamma=self.gamma, reduction=self.reduction)
+        elif self.loss_fn == "cross_entropy":
+            loss = F.cross_entropy(input=preds, target=target, weight=class_weights)
 
         preds = torch.argmax(torch.log_softmax(preds, 0), 1)
         acc = self.accuracy.compute(predictions=preds, references=target)
