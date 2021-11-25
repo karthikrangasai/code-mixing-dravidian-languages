@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 import torch
 import pytorch_lightning as pl
@@ -15,36 +15,37 @@ class CustomClassifier(torch.nn.Module):
         self,
         backbone: str,
         num_labels: int,
+        linear_layers: List[int],
         classifier_dropout: Optional[float] = None
     ):
         super().__init__()
-        self.backbone = backbone
+        self.backbone_name = backbone
         self.num_labels = num_labels
-        self.model = AutoModel.from_pretrained(backbone)
+        self.backbone = AutoModel.from_pretrained(backbone)
         
         if classifier_dropout is None:
-            _classifier_dropout = getattr(self.model.config, "classifier_dropout", None)
-            _classifier_dropout_prob = getattr(self.model.config, "classifier_dropout_prob", None)
+            _classifier_dropout = getattr(self.backbone.config, "classifier_dropout", None)
+            _classifier_dropout_prob = getattr(self.backbone.config, "classifier_dropout_prob", None)
             if (_classifier_dropout or _classifier_dropout_prob) is not None:
                 classifier_dropout = _classifier_dropout or _classifier_dropout_prob
             else:
-                classifier_dropout = self.model.config.hidden_dropout_prob
+                classifier_dropout = self.backbone.config.hidden_dropout_prob
         
-        self.dense = torch.nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size)
-        self.dropout = torch.nn.Dropout(classifier_dropout)
-        self.linear = torch.nn.Linear(self.model.config.hidden_size, num_labels)
+        hidden_size = self.backbone.config.hidden_size
+
+        linear_layers = [hidden_size] + linear_layers + [num_labels]
+        layers = []
+        for _in, _out in zip(linear_layers, linear_layers[1:]):
+            layers += [torch.nn.Dropout(classifier_dropout), torch.nn.Linear(_in, _out), torch.nn.ReLU()]
+        self.head = torch.nn.Sequential(*layers)
     
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-        output: BaseModelOutputWithPoolingAndCrossAttentions = self.model(
+        output: BaseModelOutputWithPoolingAndCrossAttentions = self.backbone(
             input_ids=input_ids, attention_mask=attention_mask
         )
         last_hidden_state = output.last_hidden_state
         cls_token = last_hidden_state[:, 0, :]  # take [CLS] token
-        x = self.dropout(cls_token)
-        x = self.dense(x)
-        x = torch.tanh(x)
-        x = self.dropout(x)
-        x = self.linear(x)
+        x = self.head(cls_token)
         return x
 
 
@@ -62,6 +63,7 @@ class CodeMixingCustomSentimentClassifier(pl.LightningModule):
         gamma: float = 0.1,
         reduction: str = "mean",
         dropout: float = 0.2,
+        linear_layers: List[int] = [256, 32],
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -75,6 +77,7 @@ class CodeMixingCustomSentimentClassifier(pl.LightningModule):
         self.model = CustomClassifier(
             backbone=backbone,
             num_labels=self.num_classes,
+            linear_layers=linear_layers,
             classifier_dropout=dropout,
         )
         self.gamma = gamma
@@ -132,17 +135,8 @@ class CodeMixingCustomSentimentClassifier(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         self._common_step(batch, batch_idx, prefix="test")
 
-    @property
-    def backbone(self):
-        model_type = self.model.config.model_type
-        if model_type == "albert":
-            return self.model.albert
-        elif model_type == "bert":
-            return self.model.bert
-        elif model_type == "xlm-roberta":
-            return self.model.roberta
-        elif model_type == "distilbert":
-            return self.model.distilbert
+    def get_backbone(self):
+        return self.model.backbone
 
     def get_num_training_steps(self) -> int:
         """Total training steps inferred from datamodule and devices."""

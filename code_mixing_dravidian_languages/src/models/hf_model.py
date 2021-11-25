@@ -74,8 +74,7 @@ class CodeMixingHFSentimentClassifier(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         self._common_step(batch, batch_idx, prefix="test")
 
-    @property
-    def backbone(self):
+    def get_backbone(self):
         model_type = self.model.config.model_type
         if model_type == "albert":
             return self.model.albert

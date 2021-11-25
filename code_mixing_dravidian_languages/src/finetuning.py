@@ -6,9 +6,10 @@ from pytorch_lightning.callbacks import BaseFinetuning
 class Freeze(BaseFinetuning):
     def __init__(self, train_bn: bool = True):
         super().__init__()
+        self.train_bn=train_bn
 
     def freeze_before_training(self, pl_module: LightningModule) -> None:
-        self.freeze(pl_module.backbone, train_bn=True)
+        self.freeze(pl_module.get_backbone(), train_bn=self.train_bn)
 
     def finetune_function(
         self,
@@ -26,7 +27,7 @@ class FreezeUnfreeze(BaseFinetuning):
         self.unfreeze_epoch = unfreeze_epoch
 
     def freeze_before_training(self, pl_module: LightningModule) -> None:
-        self.freeze(pl_module.backbone, train_bn=self.train_bn)
+        self.freeze(pl_module.get_backbone(), train_bn=self.train_bn)
 
     def finetune_function(
         self,
@@ -38,7 +39,7 @@ class FreezeUnfreeze(BaseFinetuning):
         if epoch != self.unfreeze_epoch:
             return
         self.unfreeze_and_add_param_group(
-            modules=pl_module.backbone,
+            modules=pl_module.get_backbone(),
             optimizer=optimizer,
             train_bn=self.train_bn,
         )

@@ -1,6 +1,6 @@
 import os
 from argparse import ArgumentParser
-from typing import Optional, Union
+from typing import List, Optional, Union
 import wandb
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer
@@ -23,6 +23,7 @@ from code_mixing_dravidian_languages.src.finetuning import FINE_TUNING_MAPPING
 def main(
     model_type: str,
     backbone: str,
+    linear_layers: List[int],
     learning_rate: float,
     lr_scheduler: str,
     num_warmup_steps:Union[int, float],
@@ -36,7 +37,8 @@ def main(
     max_length: int,
     num_workers: int,
     operation_type: str,
-    finetuning_strategy: str,
+    finetuning_strategy: Union[str, int],
+    train_bn: bool,
     max_epochs: int, 
     gpus: int,
     accumulate_grad_batches: int,
@@ -67,6 +69,7 @@ def main(
             model_settings["gamma"] = gamma
             model_settings["reduction"] = reduction
             model_settings["dropout"] = dropout
+            model_settings["linear_layers"] = linear_layers
 
         model = MODEL_MAPPING[model_type](
             backbone=backbone,
@@ -117,11 +120,12 @@ def main(
         callbacks.append(EarlyStopping(monitor="val_accuracy_epoch", patience=3, mode="max"))
     
     if finetuning_strategy is not None:
-        finetuning_fn = FINE_TUNING_MAPPING[finetuning_strategy]
-        if finetuning_strategy == "freeze_unfreeze":
-            finetuning_strategy_metadata = {"unfreeze_epoch": max_epochs//2}
+        if isinstance(finetuning_strategy, int):
+            finetuning_fn = FINE_TUNING_MAPPING["freeze_unfreeze"]
+            finetuning_strategy_metadata = {"unfreeze_epoch": finetuning_strategy, "train_bn": train_bn}
         else:
-            finetuning_strategy_metadata = {}
+            finetuning_fn = FINE_TUNING_MAPPING["freeze"]
+            finetuning_strategy_metadata = {"train_bn": train_bn}
         callbacks.append(finetuning_fn(**finetuning_strategy_metadata))
 
     if gpus == 1:
@@ -163,6 +167,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--model_type", default="hf", type=str, choices= ["hf", "custom"], required=False)
     parser.add_argument("--backbone", default="ai4bharat/indic-bert", type=str, required=False)
+    parser.add_argument("--linear_layers", nargs='+', type=int, required=False, default=[256, 32])
     parser.add_argument("--learning_rate", default=5e-5, type=float)
     parser.add_argument("--lr_scheduler", type=str, default=None, required=False)
     parser.add_argument("--num_warmup_steps", type=Union[int, float], default=0.1, required=False)
@@ -176,7 +181,8 @@ if __name__ == "__main__":
     parser.add_argument("--max_length", default=256, type=int)
     parser.add_argument("--num_workers", type=int, required=False, default=0)
     parser.add_argument("--operation_type", default="train", type=str)
-    parser.add_argument("--finetuning_strategy", default=None, type=str, required=False, choices=[None, 'freeze'])
+    parser.add_argument("--finetuning_strategy", default=None, type=Union[str, int], required=False)
+    parser.add_argument("--train_bn", action="store_true", required=False)
     parser.add_argument("--max_epochs", default=10, type=int)
     parser.add_argument("--gpus", choices=[0, 1, 12, 21, 22], default=1, type=int, required=False)
     parser.add_argument("--accumulate_grad_batches", default=1, type=int, required=False)
@@ -194,6 +200,7 @@ if __name__ == "__main__":
     main(
         model_type=args.model_type,
         backbone=args.backbone,
+        linear_layers=args.linear_layers,
         learning_rate=args.learning_rate,
         lr_scheduler=args.lr_scheduler,
         num_warmup_steps=args.num_warmup_steps,
@@ -210,6 +217,7 @@ if __name__ == "__main__":
         
         operation_type=args.operation_type,
         finetuning_strategy=args.finetuning_strategy,
+        train_bn=args.train_bn,
         
         max_epochs=args.max_epochs,
         gpus=args.gpus,
