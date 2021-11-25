@@ -42,6 +42,7 @@ def main(
     max_epochs: int, 
     gpus: int,
     accumulate_grad_batches: int,
+    deterministic: bool,
     save_dir: str,
     ckpt_path: str,
     wandb_run_id: str,
@@ -141,6 +142,7 @@ def main(
 
     trainer = Trainer(
         fast_dev_run=debug,
+        deterministic=deterministic,
         logger=wandb_logger,
         callbacks=callbacks,
         log_every_n_steps=10,
@@ -162,9 +164,9 @@ def main(
 
 
 if __name__ == "__main__":
-    pl.seed_everything(42)
     parser = ArgumentParser()
 
+    parser.add_argument("--seed", default=42, type=int, required=False)
     parser.add_argument("--model_type", default="hf", type=str, choices= ["hf", "custom"], required=False)
     parser.add_argument("--backbone", default="ai4bharat/indic-bert", type=str, required=False)
     parser.add_argument("--linear_layers", nargs='+', type=int, required=False, default=[256, 32])
@@ -186,6 +188,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_epochs", default=10, type=int)
     parser.add_argument("--gpus", choices=[0, 1, 12, 21, 22], default=1, type=int, required=False)
     parser.add_argument("--accumulate_grad_batches", default=1, type=int, required=False)
+    parser.add_argument("--deterministic", action="store_true", required=False)
     parser.add_argument("--save_dir", default=None, type=str, required=False)
     parser.add_argument("--ckpt_path", type=str, required=False, default="")
     parser.add_argument("--wandb_run_id", type=str, required=False, default=None)
@@ -197,6 +200,7 @@ if __name__ == "__main__":
     if (args.ckpt_path == "" and args.wandb_run_id is not None) or (args.ckpt_path != "" and args.wandb_run_id is None):
         print("If loading from checkpoint, provide a wandb run id as well.")
 
+    pl.seed_everything(args.seed)
     main(
         model_type=args.model_type,
         backbone=args.backbone,
@@ -222,6 +226,7 @@ if __name__ == "__main__":
         max_epochs=args.max_epochs,
         gpus=args.gpus,
         accumulate_grad_batches=args.accumulate_grad_batches,
+        deterministic=args.deterministic,
         save_dir=args.save_dir,
         ckpt_path=args.ckpt_path,
         wandb_run_id=args.wandb_run_id,
