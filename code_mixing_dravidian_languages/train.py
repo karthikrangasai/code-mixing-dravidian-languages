@@ -225,7 +225,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_workers", type=int, required=False, default=0)
     
     parser.add_argument("--operation_type", default="train", type=str)
-    parser.add_argument("--finetuning_strategy", default=None, type=str, required=False)
+    parser.add_argument("--finetuning_strategy", default=None, type=str, required=False, nargs=2)
     parser.add_argument("--train_bn", action="store_true", required=False)
     
     parser.add_argument("--max_epochs", default=10, type=int)
