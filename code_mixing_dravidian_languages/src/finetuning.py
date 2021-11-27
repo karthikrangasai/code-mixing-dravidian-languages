@@ -106,7 +106,6 @@ class GradualUnFreezing(BaseFinetuning):
         self.layer_splits = self._get_layer_splits(
             self.num_layers, pl_module.trainer.max_epochs - self.num_epochs_train_only_head
         )
-        print(self.layer_splits)
 
     def finetune_function(
         self,
@@ -122,7 +121,6 @@ class GradualUnFreezing(BaseFinetuning):
 
             # Fetch the layer names
             indices = self.layer_splits[current_epoch - self.num_epochs_train_only_head]
-            print(indices)
             layer_names_to_be_unfrozen = self.layer_names[indices[0] : indices[1]]
 
             # Map each layer name to modules of the layer
@@ -140,10 +138,9 @@ class GradualUnFreezing(BaseFinetuning):
                                 modules=modules,
                                 optimizer=optimizer,
                                 train_bn=self.train_bn,
-                                initial_denom_lr=pow(self.discriminative_finetuning, self.curr_layer),
+                                lr=self.init_lr / pow(self.discriminative_finetuning, self.curr_layer),
                             )
                             self.curr_layer += 1
-                            print(f"At Epoch: {current_epoch}, Unfroze layer: {layer_name}")
 
 
 def parse_finetuning_arguments(strategy: str, value: str) -> Tuple[str, Union[int, float]]:
