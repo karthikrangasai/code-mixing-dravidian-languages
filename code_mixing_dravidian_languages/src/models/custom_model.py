@@ -1,15 +1,34 @@
 from typing import Callable, Dict, List, Optional, Union
 
 import torch
-from torch.nn import functional as F
 import pytorch_lightning as pl
+
+from torch.nn import functional as F
+from torch.nn import Mish, ReLU, Tanh
+from torch.optim import Adam, AdamW
+from torch_optimizer import Ranger
+
 from pytorch_lightning.utilities.exceptions import MisconfigurationException
+
 from datasets import load_metric
 from transformers import AutoModel
-from code_mixing_dravidian_languages.src.focal_loss import focal_loss
 from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
+from transformers.optimization import get_scheduler
 from transformers.trainer_pt_utils import get_parameter_names
-from transformers.optimization import AdamW, get_scheduler
+
+from code_mixing_dravidian_languages.src.focal_loss import focal_loss
+
+ACTIVATIONS = {
+    "mish": Mish,
+    "relu": ReLU,
+    "tanh": Tanh,
+}
+
+OPTIMIZERS = {
+    "adam": Adam,
+    "adamw": AdamW,
+    "ranger": Ranger,
+}
 
 class CustomClassifier(torch.nn.Module):
     def __init__(
@@ -17,6 +36,7 @@ class CustomClassifier(torch.nn.Module):
         backbone: str,
         num_labels: int,
         linear_layers: List[int],
+        activation: str,
         classifier_dropout: Optional[float] = None
     ):
         super().__init__()
@@ -37,7 +57,7 @@ class CustomClassifier(torch.nn.Module):
         linear_layers = [hidden_size] + linear_layers + [num_labels]
         layers = []
         for _in, _out in zip(linear_layers, linear_layers[1:]):
-            layers += [torch.nn.Dropout(classifier_dropout), torch.nn.Linear(_in, _out), torch.nn.ReLU()]
+            layers += [torch.nn.Dropout(classifier_dropout), torch.nn.Linear(_in, _out), ACTIVATIONS[activation]()]
         self.head = torch.nn.Sequential(*layers)
     
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
@@ -66,11 +86,16 @@ class CodeMixingCustomSentimentClassifier(pl.LightningModule):
         dropout: float = 0.2,
         linear_layers: List[int] = [256, 32],
         loss_fn: str = "focal_loss",
+        optimizer: str = "adam",
+        activation_fn: str = "relu",
     ):
         super().__init__()
         self.save_hyperparameters()
         self.num_classes = num_classes
         self.learning_rate = learning_rate
+        self.optimizer = optimizer
+        self.activation_fn = activation_fn
+
         self.batch_size = batch_size
         self.lr_scheduler = lr_scheduler
         self.num_warmup_steps = num_warmup_steps
@@ -81,6 +106,7 @@ class CodeMixingCustomSentimentClassifier(pl.LightningModule):
             num_labels=self.num_classes,
             linear_layers=linear_layers,
             classifier_dropout=dropout,
+            activation=self.activation_fn,
         )
         self.gamma = gamma
         self.reduction = reduction
@@ -190,7 +216,7 @@ class CodeMixingCustomSentimentClassifier(pl.LightningModule):
                 "weight_decay": 0.0,
             },
         ]
-        optimizer = AdamW(optimizer_grouped_parameters, lr=self.learning_rate, correct_bias=True)
+        optimizer = OPTIMIZERS[self.optimizer](optimizer_grouped_parameters, lr=self.learning_rate)
 
         if self.lr_scheduler is not None:
             num_training_steps = self.get_num_training_steps()
