@@ -211,7 +211,7 @@ if __name__ == "__main__":
     parser.add_argument("--optimizer", type=str, default="adam", choices=OPTIMIZERS.keys())
     parser.add_argument("--activation_fn", type=str, default="relu", choices=ACTIVATIONS.keys())
     parser.add_argument("--lr_scheduler", type=str, default=None, required=False)
-    parser.add_argument("--num_warmup_steps", type=Union[int, float], default=0.1, required=False)
+    parser.add_argument("--num_warmup_steps", type=float, default=0.1, required=False)
     parser.add_argument("--loss_fn", default="focal_loss", required=False, type=str, choices=["focal_loss", "cross_entropy"])
     parser.add_argument("--gamma", default=0.1, required=False, type=float)
     parser.add_argument("--reduction", default="mean", required=False, type=str)
